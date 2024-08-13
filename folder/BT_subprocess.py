@@ -2,7 +2,7 @@ import subprocess
 
 
 if __name__ == "__main__":
-    device_name = 'Bluetooth Mouse M336/M337/M535'
+    device_name = 'BT3.0 Mouse'
     pin_code = ''  # 若不需要可留空
 
     combined = f'''
@@ -29,5 +29,5 @@ if __name__ == "__main__":
                 print('Result: Connected')
             else:
                 print(f"Error:\n {e.stderr}")
-        print(e.stderr)
-    # input('Press Enter to Exit')
+        # print(e.stderr)
+    input('Press Enter to Exit')
