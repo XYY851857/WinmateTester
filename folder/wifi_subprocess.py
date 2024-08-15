@@ -1,7 +1,6 @@
 import subprocess
 import os
 import sys
-import time
 
 
 def resource_path(relative_path):
@@ -10,11 +9,22 @@ def resource_path(relative_path):
     return os.path.join(os.path.abspath("."), relative_path)
 
 
+def connect():
+    try:
+        result = subprocess.run(['powershell', '-Command', combined], capture_output=True, text=True, check=True)
+        print('Wi-Fi Set Success\nConnecting.....')
+        return 'OK'
+
+    except subprocess.CalledProcessError as e:
+        print(e.stdout)
+        print('\nWi-Fi Set Failed')
+        return 'Failed'
+
+
 if __name__ == "__main__":
     name = 'WM_Tester'
     path = f'.\\Wi-Fi-{name}.xml'
     path2 = resource_path(f'Wi-Fi-{name}.xml')
-
 
     combined = f'''
                 $currentPolicy = Get-ExecutionPolicy
@@ -28,12 +38,6 @@ if __name__ == "__main__":
 
                 '''
 
-
-    try:
-        result = subprocess.run(['powershell', '-Command', combined], capture_output=True, text=True, check=True)
-        print('Result: Wi-Fi Set Success\nConnecting.....')
-
-    except subprocess.CalledProcessError as e:
-        print(e.stdout)
-        print('\nConnect Failed')
-    input('Press Enter to Exit')
+    result = connect()
+    with open("report.txt", 'a') as file:
+        file.write(f'Wi-Fi Set {result}\n')
