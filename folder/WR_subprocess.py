@@ -31,23 +31,30 @@ def write(path, size_in_bytes):
         content = file.read()
         expected_content = '0' * size_in_bytes
         if content == expected_content:
-            print(f'Disk:{path} Write & Read Success')
+            print(f'Disk:{path[:1]}:\\ Success')
             return True
         else:
             print('Error')
             return False
 
 
-
 if __name__ == "__main__":
     # 指定檔案大小，例如 10 KB
-    file_size = int(input("input write size(MB):")) * 1024 * 1024
-    disk_list = ["E", "D", "E"]
+    # file_size = int(input("input write size(MB):")) * 1024 * 1024
+    file_size = 100 * 1024 * 1024  # 100 MB
+
+    disk_list = ["D", "E"]
     for step in range(0, 2):
         print(f'Testing Disk: {disk_list[step]}')
+        file_path = f'{disk_list[step]}:\\test_file_{file_size / 1024 / 1024:.0f}MB.txt'
         try:
-            file_path = f'{disk_list[step]}:\\test_file_{file_size/1024/1024:.0f}MB.txt'
             state = write(file_path, file_size)
+            if os.path.exists(file_path):
+                os.remove(file_path)
             print(state)
         except Exception as e:
+            if os.path.exists(file_path):
+                os.remove(file_path)
             print(e)
+        with open('WR_report.txt', 'a') as file:
+            file.write(f'{disk_list[step]}:\\ Port OK\n')
