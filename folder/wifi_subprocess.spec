@@ -5,7 +5,7 @@ a = Analysis(
     ['wifi_subprocess.py'],
     pathex=[],
     binaries=[],
-    datas=[('Wi-Fi-TP-Link_C51A.xml', '.')],
+    datas=[('Wi-Fi-WM_Tester.xml', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

@@ -33,6 +33,7 @@ if __name__ == "__main__":
     pin_code = ''  # 若不需要可留空
 
     combined = f'''
+                Start-Service bthserv
                 .\\btpair.exe -n "{device_name}" -p "{pin_code}"                
                 '''
 

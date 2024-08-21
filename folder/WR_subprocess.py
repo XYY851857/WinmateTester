@@ -44,6 +44,7 @@ if __name__ == "__main__":
     file_size = 100 * 1024 * 1024  # 100 MB
 
     disk_list = ["D", "E"]
+    state = False
     for step in range(0, 2):
         print(f'Testing Disk: {disk_list[step]}')
         file_path = f'{disk_list[step]}:\\test_file_{file_size / 1024 / 1024:.0f}MB.txt'
@@ -57,4 +58,4 @@ if __name__ == "__main__":
                 os.remove(file_path)
             print(e)
         with open('WR_report.txt', 'a') as file:
-            file.write(f'{disk_list[step]}:\\ Port OK\n')
+            file.write(f'{disk_list[step]}:\\ Port {state}\n')
