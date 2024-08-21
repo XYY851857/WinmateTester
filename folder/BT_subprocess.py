@@ -15,13 +15,13 @@ def pair():
             result = e.stderr[start_pos:start_pos + 4]
             if result == '1244':  # 因無法操作OS故用error code判斷 1244:可連接但OS未點擊接收
                 print('Result: Bluetooth OK')
-                return 'OK'
+                return 'Success'
             elif result[0:3] == "258":  # 連接逾時
                 print('Result: Connect Timeout')
-                return 'Timeout'
+                return 'Fail'
             elif result[0:2] == '31':  # 已經連上，無法再次配對，判斷爲success
                 print('Result: Connected')
-                return 'Connected'
+                return 'Success'
             else:
                 print(f"Result: Error:\n {e.stderr}")
         print(f"Result: ERROR\n{e.stderr}")
@@ -33,7 +33,6 @@ if __name__ == "__main__":
     pin_code = ''  # 若不需要可留空
 
     combined = f'''
-                Start-Service bthserv
                 .\\btpair.exe -n "{device_name}" -p "{pin_code}"                
                 '''
 

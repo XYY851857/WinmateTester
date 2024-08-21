@@ -15,8 +15,9 @@ def decode_modbus_response(response):
 def receive_data():
     no_data_count = 0
     received_text = 'N/A'
-    while True:
+    for _ in range(0, 500000):
         ser.write(bytes.fromhex('01 04 00 01 00 01 60 0A'))
+        time.sleep(0.25)
         if ser.in_waiting > 0:
             data_received = ser.read(ser.in_waiting).hex().upper()
             no_data_count = 0
@@ -27,14 +28,14 @@ def receive_data():
                 received_text = f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]}: No data\n"
                 print(received_text)
 
-        time.sleep(1)
+        time.sleep(0.75)
 
 
 if __name__ == "__main__":
-    COM_PORT = 'COM3'
+    COM_PORT = 'COM1'
     BAUDRATE = 115200  # 9600
     BYTESIZE = serial.EIGHTBITS  # 8
-    PARITY = serial.PARITY_NONE  # EVEN
+    PARITY = serial.PARITY_NONE  # NONE
     STOPBITS = serial.STOPBITS_ONE  # 1
 
     ser = serial.Serial(
@@ -55,7 +56,7 @@ if __name__ == "__main__":
 
         else:
             print(f"Failed to connect to {COM_PORT}")
-            with open('485_report.txt', 'a') as file:
+            with open('RS485_report.txt', 'a') as file:
                 file.write(f'Failed: {COM_PORT}')
 
     except Exception as e:
