@@ -25,7 +25,7 @@ def pair():
             else:
                 print(f"Result: Error:\n {e.stderr}")
         print(f"Result: ERROR\n{e.stderr}")
-        with open('EOORO_report.txt', 'a') as errfile:
+        with open('ERROR_report.txt', 'a') as errfile:
             errfile.write(f'BT_subprocess.py:  {e.stderr}\n')
         return f'ERROR\n{e.stderr}'
 
