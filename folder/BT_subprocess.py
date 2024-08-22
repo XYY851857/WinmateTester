@@ -15,16 +15,18 @@ def pair():
             result = e.stderr[start_pos:start_pos + 4]
             if result == '1244':  # 因無法操作OS故用error code判斷 1244:可連接但OS未點擊接收
                 print('Result: Bluetooth OK')
-                return 'Success'
+                return 'PASS'
             elif result[0:3] == "258":  # 連接逾時
                 print('Result: Connect Timeout')
-                return 'Fail'
+                return 'Failed'
             elif result[0:2] == '31':  # 已經連上，無法再次配對，判斷爲success
                 print('Result: Connected')
-                return 'Success'
+                return 'PASS'
             else:
                 print(f"Result: Error:\n {e.stderr}")
         print(f"Result: ERROR\n{e.stderr}")
+        with open('EOORO_report.txt', 'a') as errfile:
+            errfile.write(f'BT_subprocess.py:  {e.stderr}\n')
         return f'ERROR\n{e.stderr}'
 
 
@@ -37,7 +39,7 @@ if __name__ == "__main__":
                 '''
 
     result = pair()
-    with open("BT_report.txt", 'a') as file:
+    with open("report.txt", 'a') as file:
         file.write(f'Bluetooth: {result}\n')
 
 
