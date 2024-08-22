@@ -54,9 +54,9 @@ def ping101(ip_start, ip_target, target_info):
         ping_result = ping_result.stdout[ch_start_pos - 4:ch_start_pos]
         print(f"Ping Failed, Loss Rate:{ping_result.replace('(', '')}")
         if ping_result == " (0%":  # 遺失率0%
-            print(f'Adapter:{target_info}, IP:{ip_start}  OK')
+            print(f'Adapter:{target_info}, IP:{ip_start}  PASS')
             with open("report.txt", 'a') as file:
-                file.write(f'Adapter:{target_info}, IP:{ip_start}  OK\n')
+                file.write(f'Adapter:{target_info}, IP:{ip_start}  PASS\n')
             return
         print(f'Adapter:{target_info}, IP:{ip_start}  Failed')
         with open("report.txt", 'a') as file:
@@ -74,9 +74,9 @@ def ping102(ip_start, ip_target, target_info):
         ping_result = ping_result.stdout[ch_start_pos - 4:ch_start_pos]
         print(f"Ping Failed, Loss Rate:{ping_result.replace('(', '')}")
         if ping_result == " (0%":
-            print(f'Adapter:{target_info}, IP:{ip_start}  OK')
+            print(f'Adapter:{target_info}, IP:{ip_start}  PASS')
             with open("report.txt", 'a') as file:
-                file.write(f'Adapter:{target_info}, IP:{ip_start}  OK\n')
+                file.write(f'Adapter:{target_info}, IP:{ip_start}  PASS\n')
             return
         print(f'Adapter:{target_info}, IP:{ip_start}  Failed')
         with open("report.txt", 'a') as file:
@@ -94,9 +94,9 @@ def ping103(ip_start, ip_target, target_info):
         ping_result = ping_result.stdout[ch_start_pos - 4:ch_start_pos]
         print(f"Result, Loss Rate:{ping_result.replace('(', '')}")
         if ping_result == " (0%":
-            print(f'Adapter:{target_info}, IP:{ip_start}  OK')
+            print(f'Adapter:{target_info}, IP:{ip_start}  PASS')
             with open("report.txt", 'a') as file:
-                file.write(f'Adapter:{target_info}, IP:{ip_start}  OK\n')
+                file.write(f'Adapter:{target_info}, IP:{ip_start}  PASS\n')
             return
         print(f'Adapter:{target_info}, IP:{ip_start}  Failed')
         with open("report.txt", 'a') as file:
