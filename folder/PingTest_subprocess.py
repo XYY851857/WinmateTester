@@ -1,5 +1,24 @@
 import subprocess
 import threading
+import os
+import sys
+import time
+
+
+def connect(combined):
+    try:
+        result = subprocess.run(['powershell', '-Command', combined], capture_output=True, text=True, check=True)
+        print('Wi-Fi Set Success\nConnecting.....')
+        with open('ping_report.txt', 'a') as file:
+            file.write('Wi-Fi Set: Success\n')
+        return
+
+    except subprocess.CalledProcessError as e:
+        print(e.stdout)
+        print('\nWi-Fi Set Failed')
+        with open('ping_report.txt', 'a') as file:
+            file.write('Wi-Fi Set: Failed\n')
+        return
 
 
 def get_info():
@@ -86,6 +105,24 @@ def ping103(ip_start, ip_target, target_info):
 
 
 if __name__ == "__main__":
+    name = 'WM_Tester'
+    path = f'.\\Wi-Fi-{name}.xml'
+
+    combined = f'''
+                    $currentPolicy = Get-ExecutionPolicy
+                    Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
+
+                    $profilePath = "{path}"
+                    netsh wlan add profile filename=$profilePath
+                    netsh wlan connect name="{name}"
+
+                    Set-ExecutionPolicy -ExecutionPolicy $currentPolicy -Scope Process -Force
+                '''
+
+    connect(combined)
+    for wait in range(0, 5):
+        print(f'{5 - wait}')
+        time.sleep(1)
     info_data = get_info()
     thread1 = threading.Thread(target=ping101, args=('192.168.1.101', '192.168.1.1', info_data['192.168.1.101']))
     thread2 = threading.Thread(target=ping102, args=('192.168.2.102', '192.168.2.1', info_data['192.168.2.102']))
