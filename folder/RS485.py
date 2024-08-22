@@ -2,6 +2,8 @@ import serial
 from datetime import datetime
 import time
 
+# pyinstaller --clean --onefile --hidden-import=serial .\RS485.py
+
 
 def decode_modbus_response(response):
     if len(response) != 14:
