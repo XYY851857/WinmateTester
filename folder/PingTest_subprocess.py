@@ -9,14 +9,14 @@ def connect(combined):
     try:
         result = subprocess.run(['powershell', '-Command', combined], capture_output=True, text=True, check=True)
         print('Wi-Fi Set Success\nConnecting.....')
-        with open('ping_report.txt', 'a') as file:
-            file.write('Wi-Fi Set: Success\n')
+        with open('report.txt', 'a') as file:
+            file.write('Wi-Fi Set: PASS\n')
         return
 
     except subprocess.CalledProcessError as e:
         print(e.stdout)
         print('\nWi-Fi Set Failed')
-        with open('ping_report.txt', 'a') as file:
+        with open('report.txt', 'a') as file:
             file.write('Wi-Fi Set: Failed\n')
         return
 
@@ -55,11 +55,11 @@ def ping101(ip_start, ip_target, target_info):
         print(f"Ping Failed, Loss Rate:{ping_result.replace('(', '')}")
         if ping_result == " (0%":  # 遺失率0%
             print(f'Adapter:{target_info}, IP:{ip_start}  OK')
-            with open("ping_report.txt", 'a') as file:
+            with open("report.txt", 'a') as file:
                 file.write(f'Adapter:{target_info}, IP:{ip_start}  OK\n')
             return
         print(f'Adapter:{target_info}, IP:{ip_start}  Failed')
-        with open("ping_report.txt", 'a') as file:
+        with open("report.txt", 'a') as file:
             file.write(f'Adapter:{target_info}, IP:{ip_start}, Failed!\n')
         return
 
@@ -75,11 +75,11 @@ def ping102(ip_start, ip_target, target_info):
         print(f"Ping Failed, Loss Rate:{ping_result.replace('(', '')}")
         if ping_result == " (0%":
             print(f'Adapter:{target_info}, IP:{ip_start}  OK')
-            with open("ping_report.txt", 'a') as file:
+            with open("report.txt", 'a') as file:
                 file.write(f'Adapter:{target_info}, IP:{ip_start}  OK\n')
             return
         print(f'Adapter:{target_info}, IP:{ip_start}  Failed')
-        with open("ping_report.txt", 'a') as file:
+        with open("report.txt", 'a') as file:
             file.write(f'Adapter:{target_info}, IP:{ip_start}, Failed!\n')
         return
 
@@ -95,11 +95,11 @@ def ping103(ip_start, ip_target, target_info):
         print(f"Result, Loss Rate:{ping_result.replace('(', '')}")
         if ping_result == " (0%":
             print(f'Adapter:{target_info}, IP:{ip_start}  OK')
-            with open("ping_report.txt", 'a') as file:
+            with open("report.txt", 'a') as file:
                 file.write(f'Adapter:{target_info}, IP:{ip_start}  OK\n')
             return
         print(f'Adapter:{target_info}, IP:{ip_start}  Failed')
-        with open("ping_report.txt", 'a') as file:
+        with open("report.txt", 'a') as file:
             file.write(f'Adapter:{target_info}, IP:{ip_start}, Failed!\n')
             return
 
