@@ -48,15 +48,18 @@ if __name__ == "__main__":
 
     threads = []
     for i in range(0, 2):
-        file_path = f'{disk_list[i]}{file_name}'
-        print(f'USB：Disk {disk_list[i]} Testing.....')
-        try:
-            thread = threading.Thread(target=write, args=(file_path, file_size, disk_list[i]))
-            threads.append(thread)
-            thread.start()
+        if os.path.exists(f'{disk_list[i]}:\\'):
+            file_path = f'{disk_list[i]}{file_name}'
+            print(f'USB：Disk {disk_list[i]} Testing.....')
+            try:
+                thread = threading.Thread(target=write, args=(file_path, file_size, disk_list[i]))
+                threads.append(thread)
+                thread.start()
 
-        except Exception as e:
-            print(f'{disk_list[i]}: {e}')
+            except Exception as e:
+                print(f'USB: {disk_list[i]}: {e}')
+        else:
+            print(f'USB: {disk_list[i]}:\\ Not Exist')
 
     for thread in threads:
         thread.join()
