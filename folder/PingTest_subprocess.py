@@ -1,14 +1,15 @@
 import subprocess
 import threading
-import os
-import sys
 import time
+
+
+file_lock = threading.Lock()
 
 
 def connect(combined):
     try:
         result = subprocess.run(['powershell', '-Command', combined], capture_output=True, text=True, check=True)
-        print('Wi-Fi Set Success\nConnecting.....')
+        # print('Wi-Fi Set Success\nConnecting.....')
         with open('report.txt', 'a') as file:
             file.write('Wi-Fi Set: PASS\n')
         return
@@ -44,7 +45,7 @@ def get_info():
     return dict1
 
 
-def ping101(ip_start, ip_target, target_info):
+def ping(ip_start, ip_target, target_info):
     ping_result = subprocess.run(['powershell', '-Command', f'ping -S {ip_start} {ip_target}'], capture_output=True,
                                  text=True)  # ping -S 起點 終點
     ch_keyword = '%'
@@ -55,53 +56,15 @@ def ping101(ip_start, ip_target, target_info):
         print(f"Ping Failed, Loss Rate:{ping_result.replace('(', '')}")
         if ping_result == " (0%":  # 遺失率0%
             print(f'Adapter:{target_info}, IP:{ip_start}  PASS')
-            with open("report.txt", 'a') as file:
-                file.write(f'Adapter:{target_info}, IP:{ip_start}  PASS\n')
+            with file_lock:
+                with open("report.txt", 'a') as file:
+                    file.write(f'Adapter:{target_info}, IP:{ip_start}  PASS\n')
             return
         print(f'Adapter:{target_info}, IP:{ip_start}  Failed')
-        with open("report.txt", 'a') as file:
-            file.write(f'Adapter:{target_info}, IP:{ip_start}, Failed!\n')
+        with file_lock:
+            with open("report.txt", 'a') as file:
+                file.write(f'Adapter:{target_info}, IP:{ip_start}, Failed!\n')
         return
-
-
-def ping102(ip_start, ip_target, target_info):
-    ping_result = subprocess.run(['powershell', '-Command', f'ping -S {ip_start} {ip_target}'], capture_output=True,
-                                 text=True)  # ping -S 起點 終點
-    ch_keyword = '%'
-    ch_start_pos = ping_result.stdout.find(ch_keyword)
-    if ch_start_pos != -1:
-        ch_start_pos += len(ch_keyword)
-        ping_result = ping_result.stdout[ch_start_pos - 4:ch_start_pos]
-        print(f"Ping Failed, Loss Rate:{ping_result.replace('(', '')}")
-        if ping_result == " (0%":
-            print(f'Adapter:{target_info}, IP:{ip_start}  PASS')
-            with open("report.txt", 'a') as file:
-                file.write(f'Adapter:{target_info}, IP:{ip_start}  PASS\n')
-            return
-        print(f'Adapter:{target_info}, IP:{ip_start}  Failed')
-        with open("report.txt", 'a') as file:
-            file.write(f'Adapter:{target_info}, IP:{ip_start}, Failed!\n')
-        return
-
-
-def ping103(ip_start, ip_target, target_info):
-    ping_result = subprocess.run(['powershell', '-Command', f'ping -S {ip_start} {ip_target}'], capture_output=True,
-                                 text=True)  # ping -S 起點 終點
-    ch_keyword = '%'
-    ch_start_pos = ping_result.stdout.find(ch_keyword)
-    if ch_start_pos != -1:
-        ch_start_pos += len(ch_keyword)
-        ping_result = ping_result.stdout[ch_start_pos - 4:ch_start_pos]
-        print(f"Result, Loss Rate:{ping_result.replace('(', '')}")
-        if ping_result == " (0%":
-            print(f'Adapter:{target_info}, IP:{ip_start}  PASS')
-            with open("report.txt", 'a') as file:
-                file.write(f'Adapter:{target_info}, IP:{ip_start}  PASS\n')
-            return
-        print(f'Adapter:{target_info}, IP:{ip_start}  Failed')
-        with open("report.txt", 'a') as file:
-            file.write(f'Adapter:{target_info}, IP:{ip_start}, Failed!\n')
-            return
 
 
 if __name__ == "__main__":
@@ -120,13 +83,13 @@ if __name__ == "__main__":
                 '''
 
     connect(combined)
-    for wait in range(0, 5):
-        print(f'{5 - wait}')
-        time.sleep(1)
+    time.sleep(5)
     info_data = get_info()
-    thread1 = threading.Thread(target=ping101, args=('192.168.1.101', '192.168.1.1', info_data['192.168.1.101']))
-    thread2 = threading.Thread(target=ping102, args=('192.168.2.102', '192.168.2.1', info_data['192.168.2.102']))
-    thread3 = threading.Thread(target=ping103, args=('192.168.2.103', '192.168.2.1', info_data['192.168.2.103']))
+    thread1 = threading.Thread(target=ping, args=('192.168.1.101', '192.168.1.1', info_data['192.168.1.101']))
+    time.sleep(0.1)
+    thread2 = threading.Thread(target=ping, args=('192.168.2.102', '192.168.2.1', info_data['192.168.2.102']))
+    time.sleep(0.1)
+    thread3 = threading.Thread(target=ping, args=('192.168.2.103', '192.168.2.1', info_data['192.168.2.103']))
 
     thread1.start()
     thread2.start()
