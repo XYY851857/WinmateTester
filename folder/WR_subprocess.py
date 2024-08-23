@@ -19,23 +19,23 @@ def write(path, size_in_bytes, disk_num):
 
     actual_size = os.path.getsize(path)
     if actual_size != size_in_bytes:  # size incorrect
-        print(f'USB: Disk {disk_num} write/read size incorrect.')
+        print(f'USB: Disk {disk_num} Write/Read Size Incorrect.')
         with open('ERROR_report.txt', 'a') as errfile:
-            errfile.write(f'\nWR_subprocess: {path} write/read size incorrect.\n')
+            errfile.write(f'\nWR_subprocess: {path} Write/Read Size Incorrect.\n')
         return
 
     with open(path, 'r') as file:
         content = file.read()
         expected_content = '0' * size_in_bytes
         if content == expected_content:  # PASS
-            print(f'USB: Disk {disk_num} write/read PASS.')
+            print(f'USB: Disk {disk_num} Write/Read PASS.')
             with open('report.txt', 'a') as passfile:
                 passfile.write(f'USB: Disk {disk_num} PASS\n')
             return
         else:  # content incorrect
-            print(f'USB: Disk {disk_num} write/read content incorrect.')
+            print(f'USB: Disk {disk_num} Write/Read Content Incorrect.')
             with open('ERROR_report.txt', 'a') as errfile:
-                errfile.write(f'\nWR_subprocess: {path} write/read content incorrect.\n')
+                errfile.write(f'\nWR_subprocess: {path} Write/Read Content Incorrect.\n')
             return
 
 
@@ -50,7 +50,6 @@ if __name__ == "__main__":
     for i in range(0, 2):
         if os.path.exists(f'{disk_list[i]}:\\'):
             file_path = f'{disk_list[i]}{file_name}'
-            print(f'USB：Disk {disk_list[i]} Testing.....')
             try:
                 thread = threading.Thread(target=write, args=(file_path, file_size, disk_list[i]))
                 threads.append(thread)
