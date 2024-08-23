@@ -2,6 +2,9 @@ import serial
 from datetime import datetime
 import time
 
+from serial.serialutil import SerialException
+
+
 # pyinstaller --clean --onefile --hidden-import=serial .\RS485.py
 
 
@@ -29,33 +32,38 @@ def decode_modbus_response(response):
 
 
 def receive_data():
-    no_data_count = 0
-    received_text = 'N/A'
-    fail_count = 0
-    run_count = 0
-    for _ in range(0, 20):
-        run_count += 1
-        ser.write(bytes.fromhex('01 04 00 01 00 01 60 0A'))
-        time.sleep(0.25)
-        if ser.in_waiting > 0:
-            data_received = ser.read(ser.in_waiting).hex().upper()
-            no_data_count = 0
-            data_CRC = calculate_crc(data_received[0:10]).hex().upper()
-            if data_CRC != data_received[10:14]:
-                check_result = 'Failed'
-                fail_count += 1
-            decode_temp = decode_modbus_response(data_received)
-            print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]}: {round(decode_temp, 2)}")
-        else:
-            if no_data_count >= 3:
-                received_text = f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]}: No data\n"
-                print(received_text)
-        if fail_count >= 3:
-            print(f'ERROR Rate: {(fail_count/run_count)*100} %')
-            with open('report.txt', 'a') as errfile:
-                errfile.write(f'RS485:Failed')
+    try:
+        no_data_count = 0
+        received_text = 'N/A'
+        fail_count = 0
+        run_count = 0
+        for _ in range(0, 20):
+            run_count += 1
+            ser.write(bytes.fromhex('01 04 00 01 00 01 60 0A'))
+            time.sleep(0.25)
+            if ser.in_waiting > 0:
+                data_received = ser.read(ser.in_waiting).hex().upper()
+                no_data_count = 0
+                data_CRC = calculate_crc(data_received[0:10]).hex().upper()
+                if data_CRC != data_received[10:14]:
+                    check_result = 'Failed'
+                    fail_count += 1
+                decode_temp = decode_modbus_response(data_received)
+                # print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]}: {round(decode_temp, 2)}")
+            else:
+                if no_data_count >= 3:
+                    received_text = f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]}: No data\n"
+                    print(received_text)
+            if fail_count >= 3 or no_data_count >= 3:
+                print(f'ERROR Rate: {(fail_count/run_count)*100} %')
+                with open('report.txt', 'a') as errfile:
+                    errfile.write(f'RS485:Failed')
 
-        time.sleep(0.75)
+            time.sleep(0.75)
+    except Exception as e:
+        print('RS485: ERROR, Try Again')
+        with open('ERROR_report.txt', 'a') as errfile:
+            errfile.write(f'RS485： {e}')
 
 
 if __name__ == "__main__":
@@ -65,13 +73,19 @@ if __name__ == "__main__":
     PARITY = serial.PARITY_NONE  # NONE
     STOPBITS = serial.STOPBITS_ONE  # 1
 
-    ser = serial.Serial(
-        port=COM_PORT,
-        baudrate=BAUDRATE,
-        bytesize=BYTESIZE,
-        parity=PARITY,
-        stopbits=STOPBITS
-    )
+    try:
+        ser = serial.Serial(
+            port=COM_PORT,
+            baudrate=BAUDRATE,
+            bytesize=BYTESIZE,
+            parity=PARITY,
+            stopbits=STOPBITS
+        )
+    except SerialException as e:
+        print(f"RS485: COM1 Disconnect")
+        with open('report.txt', 'a') as errfile:
+            errfile.write('RS485: COM1 Disconnect')
+        quit()
 
 
     try:
