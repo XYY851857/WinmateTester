@@ -1,7 +1,8 @@
 import os
+import threading
 
 
-def write(path, size_in_bytes):
+def write(path, size_in_bytes, disk_num):
     chunk_size = 1024  # 每次寫入的大小（以字節為單位）
     data = '0' * chunk_size  # 填充檔案的資料
     total_written = 0
@@ -17,20 +18,25 @@ def write(path, size_in_bytes):
                 total_written += remaining_bytes
 
     actual_size = os.path.getsize(path)
-    if actual_size != size_in_bytes:
+    if actual_size != size_in_bytes:  # size incorrect
+        print(f'USB: Disk {disk_num} write/read size incorrect.')
         with open('ERROR_report.txt', 'a') as errfile:
             errfile.write(f'\nWR_subprocess: {path} write/read size incorrect.\n')
-        return "Failed"
+        return
 
     with open(path, 'r') as file:
         content = file.read()
         expected_content = '0' * size_in_bytes
-        if content == expected_content:
-            return 'PASS'
-        else:
+        if content == expected_content:  # PASS
+            print(f'USB: Disk {disk_num} write/read PASS.')
+            with open('report.txt', 'a') as passfile:
+                passfile.write(f'USB: Disk {disk_num} PASS\n')
+            return
+        else:  # content incorrect
+            print(f'USB: Disk {disk_num} write/read content incorrect.')
             with open('ERROR_report.txt', 'a') as errfile:
                 errfile.write(f'\nWR_subprocess: {path} write/read content incorrect.\n')
-            return "Failed"
+            return
 
 
 if __name__ == "__main__":
@@ -38,17 +44,23 @@ if __name__ == "__main__":
 
     disk_list = ["D", "E"]
     state = 'Failed'
-    for step in range(0, 2):
-        print(f'Testing Disk: {disk_list[step]}')
-        file_path = f'{disk_list[step]}:\\test_file_{file_size / 1024 / 1024:.0f}MB.txt'
+    file_name = f':\\test_file_{file_size // 1024 // 1024:.0f}MB.txt'
+
+    threads = []
+    for i in range(0, 2):
+        file_path = f'{disk_list[i]}{file_name}'
+        print(f'USB：Disk {disk_list[i]} Testing.....')
         try:
-            state = write(file_path, file_size)
-            if os.path.exists(file_path):
-                os.remove(file_path)
-            print(state)
+            thread = threading.Thread(target=write, args=(file_path, file_size, disk_list[i]))
+            threads.append(thread)
+            thread.start()
+
         except Exception as e:
-            if os.path.exists(file_path):
-                os.remove(file_path)
-            print(e)
-        with open('report.txt', 'a') as file:
-            file.write(f'{disk_list[step]}:\\ Port {state}\n')
+            print(f'{disk_list[i]}: {e}')
+
+    for thread in threads:
+        thread.join()
+
+    for i in range(0, 2):
+        if os.path.exists(f'{disk_list[i]}{file_name}'):
+            os.remove(f'{disk_list[i]}{file_name}')
