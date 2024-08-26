@@ -35,7 +35,7 @@ if __name__ == "__main__":
     pin_code = ''  # 若不需要可留空
 
     combined = f'''
-                .\\btpair.exe -n "{device_name}" -p "{pin_code}"                
+                .\\new\\btpair.exe -n "{device_name}" -p "{pin_code}"                
                 '''
 
     result = pair()
