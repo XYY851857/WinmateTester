@@ -1,7 +1,7 @@
 import serial
 from datetime import datetime
 import time
-
+import sys
 from serial.serialutil import SerialException
 
 
@@ -25,8 +25,7 @@ except SerialException as e:
     print(f"RS485: COM1 Disconnect")
     with open('485_report.txt', 'a') as errfile:
         errfile.write('RS485: COM1 Disconnect')
-    quit()
-
+    sys.exit(0)
 
 def calculate_crc(data):
     data = bytes.fromhex(data)
