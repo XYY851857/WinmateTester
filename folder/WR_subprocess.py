@@ -29,7 +29,7 @@ def write(path, size_in_bytes, disk_num):
         expected_content = '0' * size_in_bytes
         if content == expected_content:  # PASS
             print(f'USB: Disk {disk_num} Write/Read PASS.')
-            with open('report.txt', 'a') as passfile:
+            with open('WR_report.txt', 'a') as passfile:
                 passfile.write(f'USB: Disk {disk_num} PASS\n')
             return
         else:  # content incorrect
