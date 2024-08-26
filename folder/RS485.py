@@ -7,6 +7,26 @@ from serial.serialutil import SerialException
 
 # pyinstaller --clean --onefile --hidden-import=serial .\RS485.py
 
+COM_PORT = 'COM1'
+BAUDRATE = 115200  # 9600
+BYTESIZE = serial.EIGHTBITS  # 8
+PARITY = serial.PARITY_NONE  # NONE
+STOPBITS = serial.STOPBITS_ONE  # 1
+
+try:
+    ser = serial.Serial(
+        port=COM_PORT,
+        baudrate=BAUDRATE,
+        bytesize=BYTESIZE,
+        parity=PARITY,
+        stopbits=STOPBITS
+    )
+except SerialException as e:
+    print(f"RS485: COM1 Disconnect")
+    with open('485_report.txt', 'a') as errfile:
+        errfile.write('RS485: COM1 Disconnect')
+    quit()
+
 
 def calculate_crc(data):
     data = bytes.fromhex(data)
@@ -56,7 +76,7 @@ def receive_data():
                     print(received_text)
             if fail_count >= 3 or no_data_count >= 3:
                 print(f'ERROR Rate: {(fail_count/run_count)*100} %')
-                with open('report.txt', 'a') as errfile:
+                with open('485_report.txt', 'a') as errfile:
                     errfile.write(f'RS485:Failed')
 
             time.sleep(0.75)
@@ -67,39 +87,18 @@ def receive_data():
 
 
 if __name__ == "__main__":
-    COM_PORT = 'COM1'
-    BAUDRATE = 115200  # 9600
-    BYTESIZE = serial.EIGHTBITS  # 8
-    PARITY = serial.PARITY_NONE  # NONE
-    STOPBITS = serial.STOPBITS_ONE  # 1
-
-    try:
-        ser = serial.Serial(
-            port=COM_PORT,
-            baudrate=BAUDRATE,
-            bytesize=BYTESIZE,
-            parity=PARITY,
-            stopbits=STOPBITS
-        )
-    except SerialException as e:
-        print(f"RS485: COM1 Disconnect")
-        with open('report.txt', 'a') as errfile:
-            errfile.write('RS485: COM1 Disconnect')
-        quit()
-
-
     try:
         if ser.is_open:
             print(f"connected to {COM_PORT}")  # 以下放接續動作
             receive_data()
-            with open('report.txt', 'a') as file:
+            with open('485_report.txt', 'a') as file:
                 file.write(f'RS485: PASS')
             ser.close()
             quit()
 
         else:
             print(f"Failed to connect to {COM_PORT}")
-            with open('report.txt', 'a') as file:
+            with open('485_report.txt', 'a') as file:
                 file.write(f'RS485: Failed')
 
     except Exception as e:
