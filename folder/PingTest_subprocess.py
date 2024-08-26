@@ -10,14 +10,14 @@ def connect(combined):
     try:
         result = subprocess.run(['powershell', '-Command', combined], capture_output=True, text=True, check=True)
         # print('Wi-Fi Set Success\nConnecting.....')
-        with open('report.txt', 'a') as file:
+        with open('PING_report.txt', 'a') as file:
             file.write('Wi-Fi Set: PASS\n')
         return
 
     except subprocess.CalledProcessError as e:
         print(e.stdout)
         print('\nWi-Fi Set Failed')
-        with open('report.txt', 'a') as file:
+        with open('PING_report.txt', 'a') as file:
             file.write('Wi-Fi Set: Failed\n')
         return
 
@@ -57,12 +57,12 @@ def ping(ip_start, ip_target, target_info):
         if ping_result == " (0%":  # 遺失率0%
             print(f'Adapter:{target_info}, IP:{ip_start}  PASS')
             with file_lock:
-                with open("report.txt", 'a') as file:
+                with open("PING_report.txt", 'a') as file:
                     file.write(f'Adapter:{target_info}, IP:{ip_start}  PASS\n')
             return
         print(f'Adapter:{target_info}, IP:{ip_start}  Failed')
         with file_lock:
-            with open("report.txt", 'a') as file:
+            with open("PING_report.txt", 'a') as file:
                 file.write(f'Adapter:{target_info}, IP:{ip_start}, Failed!\n')
         return
 
