@@ -14,13 +14,13 @@ def pair():
             start_pos += len(keyword)
             result = e.stderr[start_pos:start_pos + 4]
             if result == '1244':  # 因無法操作OS故用error code判斷 1244:可連接但OS未點擊接收
-                print('藍牙: Bluetooth OK')
+                print('藍牙: PASS')
                 return 'PASS'
             elif result[0:3] == "258":  # 連接逾時
                 print('藍牙: Connect Timeout')
                 return 'Failed'
             elif result[0:2] == '31':  # 已經連上，無法再次配對，判斷爲success
-                print('藍牙: Connected')
+                print('藍牙: PASS')
                 return 'PASS'
             else:
                 print(f"藍牙: Error:\n {e.stderr}")
@@ -39,7 +39,7 @@ if __name__ == "__main__":
                 '''
 
     result = pair()
-    with open("report.txt", 'a') as file:
+    with open("BT_report.txt", 'a') as file:
         file.write(f'Bluetooth: {result}\n')
 
 
