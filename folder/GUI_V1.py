@@ -1,7 +1,12 @@
+import os.path
+import time
 import tkinter as tk
 from tkinter import scrolledtext, font
 import subprocess
 import threading
+from collections import Counter
+
+keywords = ['fail', 'Fail', 'ERROR']
 
 
 def start_all():
@@ -47,13 +52,13 @@ def bt():
         output = result.stdout
     except Exception as e:
         output = str(e)
-    if 'fail' or 'Fail' or 'ERROR' in output:
-        BT_subprocess_exe_button.config(bg='red')
-        return display_result(output)
-    else:
+    if 'PASS' in output:
         BT_subprocess_exe_button.config(bg='green')
-    display_result(output)
-    pass
+    else:
+        BT_subprocess_exe_button.config(bg='red')
+    if os.path.exists('BT_report.txt'):
+        os.remove('BT_report.txt')
+    return display_result(output)
 
 
 def ping():
@@ -64,14 +69,11 @@ def ping():
         output = result.stdout
     except Exception as e:
         output = str(e)
-    if 'fail' or 'Fail' or 'ERROR' in output:
-        PingTest_subprocess_exe_button.config(bg='red')
-        return display_result(output)
-    else:
+    if 'PASS' in output:
         PingTest_subprocess_exe_button.config(bg='green')
-    display_result(output)
-    pass
-
+    else:
+        PingTest_subprocess_exe_button.config(bg='red')
+    return display_result(output)
 
 def wr():
     WR_subprocess_exe_button.config(bg='yellow')
@@ -81,13 +83,11 @@ def wr():
         output = result.stdout
     except Exception as e:
         output = str(e)
-    if 'fail' or 'Fail' or 'ERROR' in output:
-        WR_subprocess_exe_button.config(bg='red')
-        return display_result(output)
-    else:
+    if 'PASS' in output:
         WR_subprocess_exe_button.config(bg='green')
-    display_result(output)
-    pass
+    else:
+        WR_subprocess_exe_button.config(bg='red')
+    return display_result(output)
 
 
 def rs485():
@@ -98,12 +98,14 @@ def rs485():
         output = result.stdout
     except Exception as e:
         output = str(e)
-    if 'fail' or 'Fail' or 'ERROR' in output:
-        RS485_subprocess_exe_button.config(bg='red')
-        return display_result(output)
-    else:
+    # with open('485_report.txt', 'r') as file:
+    #     report_data = file
+    print(output)
+    if 'PASS' in output:
         RS485_subprocess_exe_button.config(bg='green')
-    display_result(output)
+    else:
+        RS485_subprocess_exe_button.config(bg='red')
+    return display_result(output)
     pass
 
 
@@ -111,13 +113,13 @@ window = tk.Tk()
 window.title("WinMate控制器功能測試V1.0")
 window.state('zoomed')
 font_style = font.Font(size=20)
-start_button = tk.Button(window, text="全部啟動", width=140, height=7, command=start_all_thread, font=font_style)
+start_button = tk.Button(window, text="全部啟動", width=140, height=3, command=start_all_thread, font=font_style)
 start_button.grid(row=0, column=0, columnspan=5, pady=10)
 
 exes = ['.\\new\\BT_subprocess.exe', '.\\new\\PingTest_subprocess.exe', '.\\new\\WR_subprocess.exe',
         '.\\new\\RS485.exe']
 button_width = 23
-button_height = 7
+button_height = 3
 
 BT_subprocess_exe_button = tk.Button(window, text=f"藍牙", width=button_width, height=button_height, font=font_style,
                                      command=BT_thread)
@@ -147,5 +149,6 @@ window.grid_columnconfigure(1, weight=1)
 window.grid_columnconfigure(2, weight=1)
 window.grid_columnconfigure(3, weight=1)
 window.grid_columnconfigure(4, weight=1)
+
 
 window.mainloop()
