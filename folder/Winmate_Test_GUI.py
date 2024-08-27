@@ -73,7 +73,6 @@ def check_button():
                     start_button.config(state=tk.DISABLED)
         if button_list[0].cget("state") == button_list[1].cget("state") == button_list[2].cget("state") == button_list[3].cget("state") and button_list[0].cget("state") == "normal":
             start_button.config(state=tk.NORMAL)
-
         time.sleep(1)
 
 
@@ -89,13 +88,12 @@ def bt():
         BT_subprocess_exe_button.config(bg='green')
     else:
         BT_subprocess_exe_button.config(bg='red')
-    if os.path.exists('BT_report.txt'):
-        os.remove('BT_report.txt')
     BT_subprocess_exe_button.config(state=tk.NORMAL)
     return display_result(output)
 
 
 def ping():
+    name_list = ['乙太網路', '乙太網路 2', 'Wi-Fi 2']
     PingTest_subprocess_exe_button.config(bg='yellow')
     display_result('RJ45/Wi-Fi: Testing...')
     try:
@@ -106,11 +104,14 @@ def ping():
     if output.count("PASS") == 3:
         PingTest_subprocess_exe_button.config(bg='green')
     else:
+        for i in name_list:
+            if i in output:
+                name_list.remove(i)
+        output = f'RJ45/WiFi: {', '.join(name_list)} Failed'
         PingTest_subprocess_exe_button.config(bg='red')
-    if os.path.exists('PING_report.txt'):
-        os.remove('PING_report.txt')
     PingTest_subprocess_exe_button.config(state=tk.NORMAL)
     return display_result(output)
+
 
 def wr():
     WR_subprocess_exe_button.config(bg='yellow')
