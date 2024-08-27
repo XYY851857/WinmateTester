@@ -39,8 +39,3 @@ if __name__ == "__main__":
                 '''
 
     result = pair()
-    with open("BT_report.txt", 'a') as file:
-        file.write(f'Bluetooth: {result}\n')
-
-
-

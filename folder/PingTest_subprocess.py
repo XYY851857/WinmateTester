@@ -8,22 +8,19 @@ file_lock = threading.Lock()
 def connect(combined):
     try:
         result = subprocess.run(['powershell', '-Command', combined], capture_output=True, text=True, check=True)
-        # print('Wi-Fi Set Success\nConnecting.....')
-        with open('PING_report.txt', 'a') as file:
-            file.write('Wi-Fi Set: PASS\n')
         return
 
     except subprocess.CalledProcessError as e:
-        print(e.stdout)
-        print('\nWi-Fi Set Failed')
-        with open('PING_report.txt', 'a') as file:
-            file.write('Wi-Fi Set: Failed\n')
+        print('Wi-Fi Set Failed\n')
+        print(e.stderr)
+        with open('ERROR_report.txt', 'a') as errfile:
+            errfile.write(e.stderr)
         return
 
 
 def get_info():
-    ENZH = ['adapter', 'IPv4 Address']
-    # ENZH = ['卡', 'IPv4 位址']
+    # ENZH = ['adapter', 'IPv4 Address']
+    ENZH = ['卡', 'IPv4 位址']
     result = subprocess.run(['powershell', '-Command', 'ipconfig /all'], capture_output=True, text=True)
     output = result.stdout + "\n\n\n\n\n"
     target_interface = f"{ENZH[0]}"
@@ -52,17 +49,10 @@ def ping(ip_start, ip_target, target_info):
     if ch_start_pos != -1:
         ch_start_pos += len(ch_keyword)
         ping_result = ping_result.stdout[ch_start_pos - 4:ch_start_pos]
-        print(f"Ping Failed, Loss Rate:{ping_result.replace('(', '')}")
         if ping_result == " (0%":  # 遺失率0%
             print(f'Adapter:{target_info}, IP:{ip_start}  PASS')
-            with file_lock:
-                with open("PING_report.txt", 'a') as file:
-                    file.write(f'Adapter:{target_info}, IP:{ip_start}  PASS\n')
             return
-        print(f'Adapter:{target_info}, IP:{ip_start}  Failed')
-        with file_lock:
-            with open("PING_report.txt", 'a') as file:
-                file.write(f'Adapter:{target_info}, IP:{ip_start}, Failed!\n')
+        print(f'IP:{ip_start}  Failed  Loss Rate:{ping_result.replace('(', '')}')
         return
 
 

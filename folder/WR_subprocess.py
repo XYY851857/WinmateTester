@@ -29,8 +29,6 @@ def write(path, size_in_bytes, disk_num):
         expected_content = '0' * size_in_bytes
         if content == expected_content:  # PASS
             print(f'USB: Disk {disk_num} Write/Read PASS.')
-            with open('WR_report.txt', 'a') as passfile:
-                passfile.write(f'USB: Disk {disk_num} PASS\n')
             return
         else:  # content incorrect
             print(f'USB: Disk {disk_num} Write/Read Content Incorrect.')
@@ -40,11 +38,11 @@ def write(path, size_in_bytes, disk_num):
 
 
 if __name__ == "__main__":
-    file_size = 100 * 1024 * 1024  # 100 MB
+    file_size = 10 * 1024 * 1024  # 10 MB
 
     disk_list = ["D", "E"]
     state = 'Failed'
-    file_name = f':\\test_file_{file_size // 1024 // 1024:.0f}MB.txt'
+    file_name = f':\\WR_test_file_{file_size // 1024 // 1024:.0f}MB.txt'
 
     threads = []
     for i in range(0, 2):

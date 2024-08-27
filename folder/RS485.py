@@ -1,31 +1,8 @@
 import serial
 from datetime import datetime
 import time
-import sys
-from serial.serialutil import SerialException
+import os
 
-
-# pyinstaller --clean --onefile --hidden-import=serial .\RS485.py
-
-COM_PORT = 'COM1'
-BAUDRATE = 115200  # 9600
-BYTESIZE = serial.EIGHTBITS  # 8
-PARITY = serial.PARITY_NONE  # NONE
-STOPBITS = serial.STOPBITS_ONE  # 1
-
-try:
-    ser = serial.Serial(
-        port=COM_PORT,
-        baudrate=BAUDRATE,
-        bytesize=BYTESIZE,
-        parity=PARITY,
-        stopbits=STOPBITS
-    )
-except SerialException as e:
-    print(f"RS485: COM1 Disconnect")
-    with open('485_report.txt', 'a') as errfile:
-        errfile.write('RS485: COM1 Disconnect')
-    sys.exit(0)
 
 def calculate_crc(data):
     data = bytes.fromhex(data)
@@ -65,17 +42,17 @@ def receive_data():
                 no_data_count = 0
                 data_CRC = calculate_crc(data_received[0:10]).hex().upper()
                 if data_CRC != data_received[10:14]:
-                    check_result = 'Failed'
                     fail_count += 1
-                decode_temp = decode_modbus_response(data_received)
+                continue
+                # decode_temp = decode_modbus_response(data_received)
                 # print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]}: {round(decode_temp, 2)}")
-            else:
-                if no_data_count >= 3:
-                    received_text = f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]}: No data\n"
-                    print(received_text)
+            if no_data_count >= 3:
+                print(f'RS485: Failed\nERROR Rate: {(no_data_count/run_count)*100} %')
+                with open('ERROR_report.txt', 'a') as errfile:
+                    errfile.write(f'RS485:Failed')
             if fail_count >= 3 or no_data_count >= 3:
-                print(f'ERROR Rate: {(fail_count/run_count)*100} %')
-                with open('485_report.txt', 'a') as errfile:
+                print(f'RS485: Failed\nERROR Rate: {(fail_count/run_count)*100} %')
+                with open('ERROR_report.txt', 'a') as errfile:
                     errfile.write(f'RS485:Failed')
 
             time.sleep(0.75)
@@ -86,24 +63,34 @@ def receive_data():
 
 
 if __name__ == "__main__":
+    COM_PORT = 'COM1'
+    BAUDRATE = 115200  # 9600
+    BYTESIZE = serial.EIGHTBITS  # 8
+    PARITY = serial.PARITY_NONE  # NONE
+    STOPBITS = serial.STOPBITS_ONE  # 1
+
+    ser = serial.Serial(
+        port=COM_PORT,
+        baudrate=BAUDRATE,
+        bytesize=BYTESIZE,
+        parity=PARITY,
+        stopbits=STOPBITS
+    )
+
     try:
         if ser.is_open:
             print(f"connected to {COM_PORT}")  # 以下放接續動作
             receive_data()
-            with open('485_report.txt', 'a') as file:
-                file.write(f'RS485: PASS')
+            print('RS485: PASS')
             ser.close()
-            quit()
 
         else:
             print(f"Failed to connect to {COM_PORT}")
-            with open('485_report.txt', 'a') as file:
-                file.write(f'RS485: Failed')
 
     except Exception as e:
         print("Error", e)
         with open('ERROR_report.txt', 'a') as errfile:
-            file.write(f'RS485: {e}\n')
+            errfile.write(f'RS485: {e}\n')
 
     finally:
         ser.close()
