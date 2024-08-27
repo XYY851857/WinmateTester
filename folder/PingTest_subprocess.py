@@ -58,7 +58,7 @@ def ping(ip_start, ip_target, target_info):
 
 if __name__ == "__main__":
     name = 'WM_Tester'
-    path = f'.\\new\\\Wi-Fi-{name}.xml'
+    path = f'.\\exes\\\Wi-Fi-{name}.xml'
 
     combined = f'''
                     $currentPolicy = Get-ExecutionPolicy
