@@ -143,6 +143,7 @@ def rs485():
     if 'PASS' in output:
         RS485_subprocess_exe_button.config(bg='green')
     else:
+        display_result('RS485: Failed')
         RS485_subprocess_exe_button.config(bg='red')
     if os.path.exists('485_report.txt'):
         os.remove('485_report.txt')
