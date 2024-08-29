@@ -1,0 +1,67 @@
+TP-Link_FA26:
+    Login password: admin1
+    MAC Address 60:83:E7:95:FA:26
+    IP Address: 192.168.1.1
+    Subnet Mask 255.255.255.0
+    Operation Mode: Client
+
+    Wireless:
+        Basic Settings:
+            SSID(to be bridged): WM_Tester
+            MAC Address(to be bridged): 60:83:E7:95:FB:32
+            Security: WPA2-PSK
+            Password: Winmate1
+    DHCP:
+        DHCP Settings:
+            DHCP Server: Enable
+            Start IP Address: 192.168.1.101
+            End IP Address: 192.168.1.101
+            Address Lease Time: 1 minutes
+            Default: 192.168.1.1
+            Default Domain: Null
+            DNS Server: 0.0.0.0
+            Secondary DNS Server: 0.0.0.0
+
+
+TP-Link_FB32:
+    Login password: admin1
+    MAC Address 60:83:E7:95:FB:32
+    IP Address: 192.168.2.1
+    Subnet Mask 255.255.255.0
+    Operation Mode: Access Point
+
+    Wireless:
+        Basic Settings:
+            Wireless Network Name: WM_Tester
+            Mode: 11bgn mixed
+            Channel Width: Auto
+            Channel: Auto
+            Enable SSID Broadcast: Selected
+        Wireless Security:
+            WPA/WPA2 - Personal(Recommended):
+                Version: WPA2-PSK
+                Encryption: AES
+                Wireless Password: Winmate1
+                Group Key Update Period: 0
+        DHCP:
+            DHCP Settings:
+                DHCP Server: Enable
+                Start IP Address: 192.168.2.102
+                End IP Address: 192.168.2.103
+                Address Lease Time: 1
+                Default Gateway: 192.168.2.1
+                Default Domain: Null
+                DNS Server: 0.0.0.0
+                Secondary DNS Server: 0.0.0.0
+
+
+    DHCP:
+        DHCP Settings:
+            DHCP Server: Enable
+            Start IP Address: 192.168.1.101
+            End IP Address: 192.168.1.101
+            Address Lease Time: 1 minutes
+            Default: 192.168.1.1
+            Default Domain: Null
+            DNS Server: 0.0.0.0
+            Secondary DNS Server: 0.0.0.0
