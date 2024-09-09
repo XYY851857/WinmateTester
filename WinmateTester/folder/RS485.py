@@ -38,7 +38,6 @@ def receive_data():
                 no_data_count += 1
             if fail_count > 0 or no_data_count > 0:
                 break
-            print(fail_count, no_data_count)
         if no_data_count == 0 and fail_count == 0:
             print('\nRS485: PASS')
         else:
