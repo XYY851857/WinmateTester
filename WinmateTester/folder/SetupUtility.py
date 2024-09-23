@@ -25,8 +25,10 @@ def clear_directory(directory):
                     shutil.rmtree(file_path)
             except PermissionError:
                 messagebox.showinfo("錯誤", f"{file_path}無法存取或刪除'")
+                unlock_button()
             except Exception as e:
                 messagebox.showinfo("錯誤", f"刪除{file_path}發生錯誤")
+                unlock_button()
 
 
 def copy_tree_with_progress(src_folder, dst_folder):
@@ -53,22 +55,41 @@ def copy_tree_with_progress(src_folder, dst_folder):
                 dst_file = os.path.join(dst_dirpath, filename)
                 copy_file(src_file, dst_file)
         update_button_color("green")
-        messagebox.showinfo("完成", f"資料夾已複製到 '{dst_folder}'")
+        S_index = selected_option.index('S')
+        messagebox.showinfo("完成", f"{selected_option[S_index:]}已複製到 C:\\Storage Card")
+        unlock_button()
     except Exception as e:
         update_button_color("red")
         messagebox.showerror("錯誤", f"複製資料夾時發生錯誤: {e}")
+        unlock_button()
+
+
+def unlock_button():
+    start_button.config(state=tk.NORMAL)
+    end_button.config(state=tk.NORMAL)
+    return
+
+
+def lock_button():
+    start_button.config(state=tk.DISABLED)
+    end_button.config(state=tk.DISABLED)
+    return
 
 
 def update_button_color(color):
     start_button.config(bg=color, fg='white')
+    unlock_button()
 
 
 def start_copy(paths_dict):
+    lock_button()
     try:
+        global selected_option
         selected_option = listbox.get(listbox.curselection())
         dst_base_folder = 'C:\\'
     except tk.TclError:
         messagebox.showwarning("錯誤", "請選擇一個選項")
+        unlock_button()
         return
 
     if selected_option == "清除Card1, Card2":
@@ -98,7 +119,7 @@ def close_app():
 
 
 def create_gui():
-    global root, progress_var, combo, start_button, entry, listbox
+    global root, progress_var, combo, start_button,end_button, entry, listbox
 
     root = tk.Tk()
     root.title("SetupUtility")
