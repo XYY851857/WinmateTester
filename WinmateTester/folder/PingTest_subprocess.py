@@ -61,6 +61,9 @@ if __name__ == "__main__":
     path = f'.\\exes\\\Wi-Fi-{name}.xml'
 
     combined = f'''
+                    netsh interface ipv4 set address name="乙太網路" source=dhcp
+                    netsh interface ipv4 set address name="乙太網路 2" source=dhcp
+                    netsh interface ipv4 set address name="Wi-Fi 2" source=dhcp
                     $currentPolicy = Get-ExecutionPolicy
                     Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
 
@@ -73,7 +76,14 @@ if __name__ == "__main__":
 
     connect(combined)
     time.sleep(5)
-    info_data = get_info()
+    for try_step in range(1, 71):
+        time.sleep(1)
+        info_data = get_info()
+        if any(value == 'None' for value in info_data.values()):
+            if try_step == 70:
+                print(f'Wi-Fi: Test Fail')
+            continue
+        break
     thread1 = threading.Thread(target=ping, args=('192.168.1.101', '192.168.1.1', info_data['192.168.1.101']))
     time.sleep(0.1)
     thread2 = threading.Thread(target=ping, args=('192.168.2.102', '192.168.2.1', info_data['192.168.2.102']))

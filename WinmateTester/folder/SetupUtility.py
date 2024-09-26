@@ -1,5 +1,7 @@
 import os
 import shutil
+import subprocess
+import time
 import tkinter as tk
 from tkinter import messagebox
 from tkinter.ttk import Progressbar
@@ -43,7 +45,7 @@ def copy_tree_with_progress(src_folder, dst_folder):
                 dst.write(buffer)
                 buffer = src.read(1024 * 1024)
         copied_files += 1
-        progress_var.set(copied_files / total_files * 100)
+        progress_var.set(copied_files / total_files * 110)
         root.update_idletasks()
 
     try:
@@ -54,9 +56,26 @@ def copy_tree_with_progress(src_folder, dst_folder):
                 src_file = os.path.join(dirpath, filename)
                 dst_file = os.path.join(dst_dirpath, filename)
                 copy_file(src_file, dst_file)
+
+        def select_behavior(command, behavior_type):
+            try:
+                subprocess.run(['powershell', '-Command', f'shutdown /{command}'], capture_output=True, text=True,check=True)
+            except:
+                messagebox.showinfo("錯誤", f"{behavior_type}執行錯誤，請從系統左下角手動點擊關機")
+                unlock_button()
         update_button_color("green")
         S_index = selected_option.index('S')
+        select_behavior('s', '關機')
         messagebox.showinfo("完成", f"{selected_option[S_index:]}已複製到 C:\\Storage Card")
+        # option = selected_var.get()
+        # if option == 0:
+        #     pass
+        # elif option == 1:  # 關機
+        #     select_behavior('s', '關機')
+        # elif option == 2:  # 登出
+        #     select_behavior('l', '登出')
+        # elif option == 3:  # 重新啓動
+        #     select_behavior('r', '重新啓動')
         unlock_button()
     except Exception as e:
         update_button_color("red")
@@ -72,6 +91,7 @@ def unlock_button():
 
 def lock_button():
     start_button.config(state=tk.DISABLED)
+    start_button.config(bg='yellow')
     end_button.config(state=tk.DISABLED)
     return
 
@@ -118,9 +138,36 @@ def close_app():
     root.destroy()
 
 
-def create_gui():
-    global root, progress_var, combo, start_button,end_button, entry, listbox
+def change_launch_photo():
+    if os.path.exists('.\\a'):
+        combined = f'''
+                        cd a; 
+                        .\\setup.exe batch install enable-entry
+                    '''
+        try:
+            subprocess.run(['powershell', '-Command', combined], capture_output=True, text=True, check=True)
+            return True
 
+        except subprocess.CalledProcessError as e:
+            messagebox.showinfo("錯誤", f"開機底圖設定失敗")
+            return False
+    return True
+
+
+def warning_font_color():
+    while True:
+        warning_label.config(fg='blue')
+        time.sleep(1)
+        warning_label.config(fg='red')
+        time.sleep(1)
+
+
+
+def create_gui():
+    global root, progress_var, combo, start_button, end_button, entry, listbox, launch_photo_button
+    global warning_label
+    if change_launch_photo() is False:
+        return False
     root = tk.Tk()
     root.title("SetupUtility")
     root.state('zoom')
@@ -153,18 +200,45 @@ def create_gui():
     button_frame = tk.Frame(root)
     button_frame.pack(pady=10, fill='x')
 
-    start_button = tk.Button(button_frame, text="開始", command=lambda: start_copy(paths_dict), font=font)
+    start_button = tk.Button(button_frame, text="開始執行", command=lambda: start_copy(paths_dict), font=font)
     start_button.pack(side='right', padx=5, expand=True, fill='x')
 
-    end_button = tk.Button(button_frame, text="結束", command=close_app, font=font)
+    end_button = tk.Button(button_frame, text="結束程序", command=close_app, font=font)
     end_button.pack(side='left', padx=5, expand=True, fill='x')
 
+    progress_frame = tk.Frame(root)
+    progress_frame.pack(pady=5, padx=20, fill='x')
+
     progress_var = tk.DoubleVar()
-    progress_bar = Progressbar(root, variable=progress_var, maximum=100)
-    progress_bar.pack(pady=20, padx=20, fill='x')
+    progress_bar = Progressbar(progress_frame, variable=progress_var, maximum=100)
+    progress_bar.pack(side='left', fill='x', expand=True)
+
+    warning_frame = tk.Frame(root)
+    warning_frame.pack(pady=5, padx=20, fill='x')
+
+    warning_label = tk.Label(warning_frame, text='執行完成會自動關機\n請勿直接斷電', font=font)
+    warning_label.pack()
+    threading.Thread(target=warning_font_color).start()
+
+    # checkbox_frame = tk.Frame(root)
+    # checkbox_frame.pack(pady=20, padx=20, fill='x')
+    # checkbox_frame.columnconfigure((0, 1, 2), weight=1)
+
+    # selected_var = tk.IntVar(value=1)
+    # radio1_shutdown = tk.Radiobutton(checkbox_frame, text='關機', font=font, variable=selected_var, value=1)
+    # radio1_shutdown.grid(row=0, column=0, sticky='ew', padx=10)
+    #
+    # radio2_logout = tk.Radiobutton(checkbox_frame, text='登出', font=font, variable=selected_var, value=2)
+    # radio2_logout.grid(row=0, column=1, sticky='ew', padx=10)
+    #
+    # radio3_restart = tk.Radiobutton(checkbox_frame, text='重新啓動', font=font, variable=selected_var, value=3)
+    # radio3_restart.grid(row=0, column=2, sticky='ew', padx=10)
 
     root.mainloop()
 
 
 if __name__ == "__main__":
-    create_gui()
+    report = create_gui()
+    if report is False:
+        with open('ERROR_report.txt', 'a') as errfile:
+            errfile.write('SetupUtility: launch photo change Failed')
