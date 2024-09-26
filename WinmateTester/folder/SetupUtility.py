@@ -145,13 +145,13 @@ def change_launch_photo():
                         .\\setup.exe batch install enable-entry
                     '''
         try:
-            subprocess.run(['powershell', '-Command', combined], capture_output=True, text=True, check=True)
+            # subprocess.run(['powershell', '-Command', combined], capture_output=True, text=True, check=True)
             return True
 
         except subprocess.CalledProcessError as e:
             messagebox.showinfo("錯誤", f"開機底圖設定失敗")
             return False
-    return True
+    return False
 
 
 def warning_font_color():
@@ -170,7 +170,7 @@ def create_gui():
         return False
     root = tk.Tk()
     root.title("SetupUtility")
-    root.state('zoom')
+    root.attributes('-fullscreen', True)
     font = ('Arial', 20)
 
     folder_names, paths = read_paths_from_file(".\\data\\path.txt")
@@ -241,4 +241,4 @@ if __name__ == "__main__":
     report = create_gui()
     if report is False:
         with open('ERROR_report.txt', 'a') as errfile:
-            errfile.write('SetupUtility: launch photo change Failed')
+            errfile.write('SetupUtility: launch photo change Failed\n')
