@@ -138,20 +138,27 @@ def close_app():
     root.destroy()
 
 
-def change_launch_photo():
+def addition_command():
     if os.path.exists('.\\a'):
         combined = f'''
                         cd a; 
                         .\\setup.exe batch install enable-entry
                     '''
         try:
-            # subprocess.run(['powershell', '-Command', combined], capture_output=True, text=True, check=True)
-            return True
-
+            subprocess.run(['powershell', '-Command', combined], capture_output=True, text=True, check=True)
+            print('開機底圖更換成功')
         except subprocess.CalledProcessError as e:
-            messagebox.showinfo("錯誤", f"開機底圖設定失敗")
-            return False
-    return False
+            messagebox.showinfo("錯誤", f"開機底圖設定失敗，請重試")
+            return False, '開機底圖設定'
+    if os.path.exists('.\\addition_command.txt'):
+        try:
+            with open('.\\addition_command.txt', 'r') as file:
+                result = subprocess.run(['powershell', '-Command', file.read()], capture_output=True, text=True, check=True, shell=True)
+            print('插件執行成功')
+        except subprocess.CalledProcessError as e:
+            messagebox.showinfo("錯誤", f"插件執行失敗，請重試")
+            return False, '插件執行'
+    return True, 'None'
 
 
 def warning_font_color():
@@ -162,12 +169,12 @@ def warning_font_color():
         time.sleep(1)
 
 
-
 def create_gui():
     global root, progress_var, combo, start_button, end_button, entry, listbox, launch_photo_button
     global warning_label
-    if change_launch_photo() is False:
-        return False
+    result, detail = addition_command()
+    if result is False:
+        return False, detail
     root = tk.Tk()
     root.title("SetupUtility")
     root.attributes('-fullscreen', True)
@@ -238,7 +245,7 @@ def create_gui():
 
 
 if __name__ == "__main__":
-    report = create_gui()
+    report, detail = create_gui()
     if report is False:
         with open('ERROR_report.txt', 'a') as errfile:
-            errfile.write('SetupUtility: launch photo change Failed\n')
+            errfile.write(f'SetupUtility: {detail} Failed\n')

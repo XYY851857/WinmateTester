@@ -69,9 +69,10 @@ def check_button():
         for button in button_list:
             state = button.cget("state")
             if state == 'disabled':
-                for step in button_list:
-                    start_button.config(state=tk.DISABLED)
-        if button_list[0].cget("state") == button_list[1].cget("state") == button_list[2].cget("state") == button_list[3].cget("state") and button_list[0].cget("state") == "normal":
+                start_button.config(state=tk.DISABLED)
+
+        if button_list[0].cget("state") == button_list[1].cget("state") == button_list[2].cget("state") == button_list[
+            3].cget("state") and button_list[0].cget("state") == "normal":
             start_button.config(state=tk.NORMAL)
         time.sleep(1)
 
@@ -151,46 +152,54 @@ def rs485():
     return display_result(output)
 
 
-window = tk.Tk()
-window.title("WinMate控制器功能測試V1.0")
-window.state('zoomed')
-font_style = font.Font(size=20)
-start_button = tk.Button(window, text="全部啟動", width=140, height=3, command=start_all_thread, font=font_style)
-start_button.grid(row=0, column=0, columnspan=5, pady=10)
+def close_window():
+    window.destroy()
 
-exes = ['.\\exes\\BT_subprocess.exe', '.\\exes\\PingTest_subprocess.exe', '.\\exes\\WR_subprocess.exe',
-        '.\\exes\\RS485.exe']
-button_width = 23
-button_height = 3
 
-BT_subprocess_exe_button = tk.Button(window, text=f"藍牙", width=button_width, height=button_height, font=font_style,
-                                     command=BT_thread)
-BT_subprocess_exe_button.grid(row=1, column=0, padx=5, pady=5)  # 藍牙測試按鈕
+if __name__ == "__main__":
+    window = tk.Tk()
+    window.title("WinMate控制器功能測試V1.0")
+    window.attributes('-fullscreen', True)
+    font_style = font.Font(size=20)
+    start_button = tk.Button(window, text="全部啟動", width=140, height=3, command=start_all_thread, font=font_style)
+    start_button.grid(row=0, column=0, columnspan=5, pady=10)
 
-PingTest_subprocess_exe_button = tk.Button(window, text=f"RJ45/WiFi", width=button_width, height=button_height,
-                                           font=font_style, command=Ping_thread)
-PingTest_subprocess_exe_button.grid(row=1, column=1, padx=5, pady=5)  # WiFi設定及ping測試
+    exes = ['.\\exes\\BT_subprocess.exe', '.\\exes\\PingTest_subprocess.exe', '.\\exes\\WR_subprocess.exe',
+            '.\\exes\\RS485.exe']
+    button_width = 23
+    button_height = 3
 
-WR_subprocess_exe_button = tk.Button(window, text=f"USB", width=button_width, height=button_height, font=font_style,
-                                     command=WR_thread)
-WR_subprocess_exe_button.grid(row=1, column=2, padx=5, pady=5)  # USB讀寫測試
+    BT_subprocess_exe_button = tk.Button(window, text=f"藍牙", width=button_width, height=button_height,
+                                         font=font_style, command=BT_thread)
+    BT_subprocess_exe_button.grid(row=1, column=0, padx=5, pady=5)  # 藍牙測試按鈕
 
-RS485_subprocess_exe_button = tk.Button(window, text=f"RS485", width=button_width, height=button_height,
-                                        font=font_style, command=RS485_thread)
-RS485_subprocess_exe_button.grid(row=1, column=3, padx=5, pady=5)  # RS485測試
+    PingTest_subprocess_exe_button = tk.Button(window, text=f"RJ45/WiFi", width=button_width, height=button_height,
+                                               font=font_style, command=Ping_thread)
+    PingTest_subprocess_exe_button.grid(row=1, column=1, padx=5, pady=5)  # WiFi設定及ping測試
 
-result_text = scrolledtext.ScrolledText(window, width=240, height=30, font=font_style)  # 建立輸出框
-result_text.grid(row=2, column=0, columnspan=5, padx=10, pady=10)
+    WR_subprocess_exe_button = tk.Button(window, text=f"USB", width=button_width, height=button_height, font=font_style,
+                                         command=WR_thread)
+    WR_subprocess_exe_button.grid(row=1, column=2, padx=5, pady=5)  # USB讀寫測試
 
-window.grid_rowconfigure(0, weight=0)  # 權重設定
-window.grid_rowconfigure(1, weight=0)
-window.grid_rowconfigure(2, weight=1)
+    RS485_subprocess_exe_button = tk.Button(window, text=f"RS485", width=button_width, height=button_height,
+                                            font=font_style, command=RS485_thread)
+    RS485_subprocess_exe_button.grid(row=1, column=3, padx=5, pady=5)  # RS485測試
 
-window.grid_columnconfigure(0, weight=1)
-window.grid_columnconfigure(1, weight=1)
-window.grid_columnconfigure(2, weight=1)
-window.grid_columnconfigure(3, weight=1)
-window.grid_columnconfigure(4, weight=1)
+    result_text = scrolledtext.ScrolledText(window, width=240, height=30, font=font_style)  # 建立輸出框
+    result_text.grid(row=2, column=0, columnspan=5, padx=10, pady=10)
 
-check_button_thread()
-window.mainloop()
+    exit_button = tk.Button(window, text='離開端口測試程式', width=240, font=font_style, command=close_window)
+    exit_button.grid(row=3, column=0, columnspan=5, padx=10, pady=10)
+
+    window.grid_rowconfigure(0, weight=0)  # 權重設定
+    window.grid_rowconfigure(1, weight=0)
+    window.grid_rowconfigure(2, weight=1)
+
+    window.grid_columnconfigure(0, weight=1)
+    window.grid_columnconfigure(1, weight=1)
+    window.grid_columnconfigure(2, weight=1)
+    window.grid_columnconfigure(3, weight=1)
+    window.grid_columnconfigure(4, weight=1)
+
+    check_button_thread()
+    window.mainloop()
