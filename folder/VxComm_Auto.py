@@ -1,10 +1,11 @@
 import ctypes
 import sys
 import time
-import subprocess
+import pygetwindow as gw
 from pywinauto import Application
 from pywinauto.keyboard import send_keys
 import subprocess
+import re
 
 # 設定網卡名稱
 network_adapter = "乙太網路"
@@ -45,7 +46,7 @@ except Exception as e:
 # **2. 執行 VxComm 安裝程式**
 try:
     print("正在安裝 VxComm Utility...")
-    subprocess.run(r".\VxComm_Auto\VxCommW7_v2.14.04_setup.exe /silent /norestart", shell=True)
+    subprocess.run(r"D:\VxComm_Auto\VxCommW7_v2.14.04_setup.exe /silent /norestart", shell=True)
     print("安裝完成，等待 5 秒以確保應用程式可用...")
     time.sleep(5)  # 等待安裝完成
 except Exception as e:
@@ -119,3 +120,14 @@ try:
     send_keys("{ENTER}")
 except Exception as e:
     print(f"選單點擊失敗: {e}")
+
+time.sleep(5)
+
+
+# **9. 關閉VxComm Utility**
+pattern = re.compile(r"^VxComm Utility \[(.*?)]$")
+all_windows = gw.getAllWindows()
+for win in all_windows:
+    if pattern.match(win.title):
+        win.close()
+        print(f"已關閉視窗：{win.title}")
