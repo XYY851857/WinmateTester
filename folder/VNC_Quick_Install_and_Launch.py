@@ -15,9 +15,9 @@ def get_mac_address_by_name():
     return "Unknown"
 
 def addation_command():
-    if os.path.exists('.\\addition_command.txt'):
+    if os.path.exists('.\\VNC\\addition_command.txt'):
         try:
-            with open('.\\addition_command.txt', 'r', encoding='UTF-8') as file:
+            with open('.\\VNC\\addition_command.txt', 'r', encoding='UTF-8') as file:
                 for line in file:
                     command = line.strip()  # 移除空白與換行符
                     if command:  # 如果不是空行，執行指令
