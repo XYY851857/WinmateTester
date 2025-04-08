@@ -33,8 +33,8 @@ def pair(device_name, pin_code):
             print(f"藍牙: ERROR\n{e.stderr}")
 
         # 寫入錯誤檔案 (維持原功能)
-        with open('.\\log\\ERROR_report.txt', 'a', encoding='utf-8') as errfile:
-            errfile.write(f'BT_subprocess.py:  {e.stderr}\n')
+        # with open('.\\log\\ERROR_report.txt', 'a', encoding='utf-8') as errfile:
+        #     errfile.write(f'BT_subprocess.py:  {e.stderr}\n')
 
         return f'ERROR\n{e.stderr}'
 
