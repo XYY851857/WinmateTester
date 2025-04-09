@@ -58,7 +58,6 @@ def start_breathing(button):
     interval = 15   # 每步的時間間隔 (毫秒)
 
     # 定義「暗」與「亮」兩端顏色（僅針對黃系做輕微變化即可）
-    # 例如從 #FFFFB9 (稍暗) 到 #F9F900 (較亮)
     dark_rgb = (0xFF, 0xFF, 0xB9)
     bright_rgb = (0xF9, 0xF9, 0x00)
 
@@ -152,6 +151,8 @@ EXES = {
     "RS485": ".\\0\\Winmate_Test_GUI\\exes\\RS485.exe",
 }
 
+TIMEOUT_SECONDS = 90
+
 def get_mac_address_by_name():
     for interface, addrs in psutil.net_if_addrs().items():
         if interface == "乙太網路 2":
@@ -164,9 +165,18 @@ def all_exes_exist():
     """ 檢查所有必須的 exe 是否都存在 """
     return all(os.path.exists(path) for path in EXES.values())
 
+def unlock_all_buttons():
+    """ 重新解鎖五個按鈕(含四個測試與「全部啟動」) """
+    start_button.config(state=tk.NORMAL)
+    BT_subprocess_exe_button.config(state=tk.NORMAL)
+    PingTest_subprocess_exe_button.config(state=tk.NORMAL)
+    WR_subprocess_exe_button.config(state=tk.NORMAL)
+    RS485_subprocess_exe_button.config(state=tk.NORMAL)
+
 def check_all_exes_and_alert_if_missing():
     """
-    若有任一 exe 不存在，則彈出錯誤訊息並將四大按鈕變成紅色，回傳 False；否則回傳 True。
+    若有任一 exe 不存在，則彈出錯誤訊息並將四大按鈕變成紅色，
+    並且解鎖按鈕，回傳 False；否則回傳 True。
     """
     if not all_exes_exist():
         messagebox.showerror("錯誤", "執行組建缺少，請再試一次")
@@ -175,18 +185,22 @@ def check_all_exes_and_alert_if_missing():
         fade_to_color(PingTest_subprocess_exe_button, "red", steps=1, interval=1)
         fade_to_color(WR_subprocess_exe_button, "red", steps=1, interval=1)
         fade_to_color(RS485_subprocess_exe_button, "red", steps=1, interval=1)
+        # 解鎖按鈕
+        unlock_all_buttons()
         return False
     return True
 
 def check_single_exe_and_alert_if_missing(button, exe_path):
     """
     檢查單一執行檔是否存在。
-    若不存在：彈出錯誤訊息、將該按鈕變紅，回傳 False。
+    若不存在：彈出錯誤訊息、將該按鈕變紅，並解鎖按鈕，回傳 False。
     若存在：回傳 True。
     """
     if not os.path.exists(exe_path):
         messagebox.showerror("錯誤", "執行組建缺少，請再試一次")
         fade_to_color(button, "red", steps=1, interval=1)
+        # 解鎖按鈕 (含 start_button 與四個測試按鈕)
+        unlock_all_buttons()
         return False
     return True
 
@@ -198,8 +212,7 @@ def bt():
     fade_to_color(BT_subprocess_exe_button, 'yellow')
     display_result('藍牙: Testing...')
     try:
-        # 設定超過 90 秒 subprocess 還沒結束就丟出 TimeoutExpired
-        result = subprocess.run(EXES["BT"], capture_output=True, text=True, timeout=90)
+        result = subprocess.run(EXES["BT"], capture_output=True, text=True, timeout=TIMEOUT_SECONDS)
         output = result.stdout
     except subprocess.TimeoutExpired:
         fade_to_color(BT_subprocess_exe_button, 'red')
@@ -222,7 +235,7 @@ def ping():
     fade_to_color(PingTest_subprocess_exe_button, 'yellow')  # 呼吸效果
     display_result('RJ45/Wi-Fi: Testing...')
     try:
-        result = subprocess.run(EXES["Ping"], capture_output=True, text=True, timeout=90)
+        result = subprocess.run(EXES["Ping"], capture_output=True, text=True, timeout=TIMEOUT_SECONDS)
         output = result.stdout
     except subprocess.TimeoutExpired:
         fade_to_color(PingTest_subprocess_exe_button, 'red')
@@ -254,7 +267,7 @@ def wr():
     fade_to_color(WR_subprocess_exe_button, 'yellow')
     display_result('USB: Testing...')
     try:
-        result = subprocess.run(EXES["WR"], capture_output=True, text=True, timeout=90)
+        result = subprocess.run(EXES["WR"], capture_output=True, text=True, timeout=TIMEOUT_SECONDS)
         output = result.stdout
     except subprocess.TimeoutExpired:
         fade_to_color(WR_subprocess_exe_button, 'red')
@@ -279,7 +292,7 @@ def rs485():
     fade_to_color(RS485_subprocess_exe_button, 'yellow')
     display_result('RS485: Testing...')
     try:
-        result = subprocess.run(EXES["RS485"], capture_output=True, text=True, timeout=90)
+        result = subprocess.run(EXES["RS485"], capture_output=True, text=True, timeout=TIMEOUT_SECONDS)
         output = result.stdout
     except subprocess.TimeoutExpired:
         fade_to_color(RS485_subprocess_exe_button, 'red')
@@ -335,8 +348,7 @@ def BT_thread():
     BT_subprocess_exe_button.config(state=tk.DISABLED)
 
     if not check_single_exe_and_alert_if_missing(BT_subprocess_exe_button, EXES["BT"]):
-        BT_subprocess_exe_button.config(state=tk.NORMAL)
-        return
+        return  # 已在函式內解鎖，這邊直接結束
 
     threading.Thread(target=bt).start()
 
@@ -346,7 +358,6 @@ def Ping_thread():
     PingTest_subprocess_exe_button.config(state=tk.DISABLED)
 
     if not check_single_exe_and_alert_if_missing(PingTest_subprocess_exe_button, EXES["Ping"]):
-        PingTest_subprocess_exe_button.config(state=tk.NORMAL)
         return
 
     threading.Thread(target=ping).start()
@@ -357,7 +368,6 @@ def WR_thread():
     WR_subprocess_exe_button.config(state=tk.DISABLED)
 
     if not check_single_exe_and_alert_if_missing(WR_subprocess_exe_button, EXES["WR"]):
-        WR_subprocess_exe_button.config(state=tk.NORMAL)
         return
 
     threading.Thread(target=wr).start()
@@ -368,7 +378,6 @@ def RS485_thread():
     RS485_subprocess_exe_button.config(state=tk.DISABLED)
 
     if not check_single_exe_and_alert_if_missing(RS485_subprocess_exe_button, EXES["RS485"]):
-        RS485_subprocess_exe_button.config(state=tk.NORMAL)
         return
 
     threading.Thread(target=rs485).start()
@@ -397,18 +406,11 @@ def check_button():
                 start_button.config(state=tk.DISABLED)
 
         # 當所有按鈕都恢復到 normal，才把 start_button 打開
-        if (button_list[0].cget("state") ==
-                button_list[1].cget("state") ==
-                button_list[2].cget("state") ==
-                button_list[3].cget("state") == "normal"):
+        if all(button.cget("state") == "normal" for button in button_list):
             start_button.config(state=tk.NORMAL)
 
         # 若所有按鈕都是綠燈(#00ff00)且還沒寫入檔案，就寫一筆 success log
-        if (button_list[0].cget("bg") ==
-                button_list[1].cget("bg") ==
-                button_list[2].cget("bg") ==
-                button_list[3].cget("bg") == "#00ff00"
-                and success_check == False):
+        if all(button.cget("bg") == "#00ff00" for button in button_list) and not success_check:
             with open(".\\log\\Winmate_Test_log.txt", 'a', encoding='utf-8') as file:
                 mac_address = get_mac_address_by_name()
                 file.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} Success.\n')
@@ -472,7 +474,7 @@ if __name__ == "__main__":
     window.grid_columnconfigure(3, weight=1)
     window.grid_columnconfigure(4, weight=1)
 
-    # 啟動程式時，先檢查四個執行檔是否都存在，不存在就彈窗並把四按鈕變紅
+    # 啟動程式時，先檢查四個執行檔是否都存在，不存在就彈窗並把四按鈕變紅，最後解鎖按鈕
     check_all_exes_and_alert_if_missing()
 
     check_button_thread()
