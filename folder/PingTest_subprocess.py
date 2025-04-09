@@ -144,7 +144,7 @@ if __name__ == "__main__":
     # time.sleep(5)
 
     # 最多嘗試 20 次 (20 秒) 檢查 IP 狀態
-    for try_step in range(1, 21):
+    for try_step in range(1, 11):
         time.sleep(1)
         info_data = get_ip_info()
         # 若所有 IP 位址都不再是 'None'，表示已成功取得 IP
