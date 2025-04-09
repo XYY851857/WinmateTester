@@ -2,7 +2,7 @@ import os
 import time
 import tkinter as tk
 from datetime import datetime
-from tkinter import scrolledtext, font
+from tkinter import scrolledtext, font, messagebox
 import subprocess
 import threading
 import psutil
@@ -55,12 +55,12 @@ def start_breathing(button):
 
     # 可以自行微調這些參數來改變呼吸節奏和亮暗範圍
     max_phase = 15  # 呼吸來回的細分總步數
-    interval = 15  # 每步的時間間隔 (毫秒)
+    interval = 15   # 每步的時間間隔 (毫秒)
 
     # 定義「暗」與「亮」兩端顏色（僅針對黃系做輕微變化即可）
-    # 例如從 #FFF200 (亮黃) 到 #FFD800 (稍暗的黃)
-    dark_rgb = (0xFF, 0xFF, 0xB9)  # #FFD800
-    bright_rgb = (0xF9, 0xF9, 0x00)  # #FFF200
+    # 例如從 #FFFFB9 (稍暗) 到 #F9F900 (較亮)
+    dark_rgb = (0xFF, 0xFF, 0xB9)
+    bright_rgb = (0xF9, 0xF9, 0x00)
 
     def breathe_step():
         if not button.breathing:
@@ -94,7 +94,6 @@ def fade_to_color(button, target_color, steps=10, interval=10):
 
     # 若是要變成「呼吸效果的黃色」，先簡單漸變到黃，然後開始呼吸
     if target_color == "yellow":
-        # 先把按鈕拉到 #FFFF00，然後開始呼吸
         do_simple_fade(button, target_color, steps, interval, on_complete=start_breathing)
     else:
         # 一般顏色，就做一般的漸變
@@ -141,10 +140,18 @@ def do_simple_fade(button, target_color, steps, interval, on_complete=None):
 
 
 # --------------------------------------------------
-# 以下為原測試程式邏輯
+# 主要測試程式邏輯
 # --------------------------------------------------
 
 success_check = False
+
+# 四個要檢查的執行檔路徑
+EXES = {
+    "BT": ".\\0\\Winmate_Test_GUI\\exes\\BT_subprocess.exe",
+    "Ping": ".\\0\\Winmate_Test_GUI\\exes\\PingTest_subprocess.exe",
+    "WR": ".\\0\\Winmate_Test_GUI\\exes\\WR_subprocess.exe",
+    "RS485": ".\\0\\Winmate_Test_GUI\\exes\\RS485.exe",
+}
 
 
 def get_mac_address_by_name():
@@ -156,7 +163,44 @@ def get_mac_address_by_name():
     return "Unknown"
 
 
+def all_exes_exist():
+    """ 檢查所有必須的 exe 是否都存在 """
+    return all(os.path.exists(path) for path in EXES.values())
+
+
+def check_all_exes_and_alert_if_missing():
+    """
+    若有任一 exe 不存在，則彈出錯誤訊息並將四大按鈕變成紅色，回傳 False；否則回傳 True。
+    """
+    if not all_exes_exist():
+        messagebox.showerror("錯誤", "執行組建缺少，請再試一次")
+        # 將四個按鈕全部變紅
+        fade_to_color(BT_subprocess_exe_button, "red", steps=1, interval=1)
+        fade_to_color(PingTest_subprocess_exe_button, "red", steps=1, interval=1)
+        fade_to_color(WR_subprocess_exe_button, "red", steps=1, interval=1)
+        fade_to_color(RS485_subprocess_exe_button, "red", steps=1, interval=1)
+        return False
+    return True
+
+
+def check_single_exe_and_alert_if_missing(button, exe_path):
+    """
+    檢查單一執行檔是否存在。
+    若不存在：彈出錯誤訊息、將該按鈕變紅，回傳 False。
+    若存在：回傳 True。
+    """
+    if not os.path.exists(exe_path):
+        messagebox.showerror("錯誤", "執行組建缺少，請再試一次")
+        fade_to_color(button, "red", steps=1, interval=1)
+        return False
+    return True
+
+
 def start_all():
+    # 在真正執行四個測試前，先檢查四個執行檔是否都存在
+    if not check_all_exes_and_alert_if_missing():
+        # 若有缺少則直接不執行
+        return
     bt()
     ping()
     wr()
@@ -169,33 +213,54 @@ def start_all_thread():
     PingTest_subprocess_exe_button.config(state=tk.DISABLED)
     WR_subprocess_exe_button.config(state=tk.DISABLED)
     RS485_subprocess_exe_button.config(state=tk.DISABLED)
-    threading.Thread(target=bt).start()
-    threading.Thread(target=ping).start()
-    threading.Thread(target=rs485).start()
-    threading.Thread(target=wr).start()
+    threading.Thread(target=start_all).start()
 
 
 def BT_thread():
     start_button.config(state=tk.DISABLED)
     BT_subprocess_exe_button.config(state=tk.DISABLED)
+
+    # 先檢查 BT_subprocess_exe 是否存在，若不存在就不用執行
+    if not check_single_exe_and_alert_if_missing(BT_subprocess_exe_button, EXES["BT"]):
+        BT_subprocess_exe_button.config(state=tk.NORMAL)
+        return
+
     threading.Thread(target=bt).start()
 
 
 def Ping_thread():
     start_button.config(state=tk.DISABLED)
     PingTest_subprocess_exe_button.config(state=tk.DISABLED)
+
+    # 先檢查 PingTest_subprocess_exe 是否存在
+    if not check_single_exe_and_alert_if_missing(PingTest_subprocess_exe_button, EXES["Ping"]):
+        PingTest_subprocess_exe_button.config(state=tk.NORMAL)
+        return
+
     threading.Thread(target=ping).start()
 
 
 def WR_thread():
     start_button.config(state=tk.DISABLED)
     WR_subprocess_exe_button.config(state=tk.DISABLED)
+
+    # 檢查 WR_subprocess_exe 是否存在
+    if not check_single_exe_and_alert_if_missing(WR_subprocess_exe_button, EXES["WR"]):
+        WR_subprocess_exe_button.config(state=tk.NORMAL)
+        return
+
     threading.Thread(target=wr).start()
 
 
 def RS485_thread():
     start_button.config(state=tk.DISABLED)
     RS485_subprocess_exe_button.config(state=tk.DISABLED)
+
+    # 檢查 RS485.exe 是否存在
+    if not check_single_exe_and_alert_if_missing(RS485_subprocess_exe_button, EXES["RS485"]):
+        RS485_subprocess_exe_button.config(state=tk.NORMAL)
+        return
+
     threading.Thread(target=rs485).start()
 
 
@@ -244,10 +309,11 @@ def check_button():
 
 
 def bt():
-    fade_to_color(BT_subprocess_exe_button, 'yellow')  # 呼吸效果
+    # 進入呼吸效果
+    fade_to_color(BT_subprocess_exe_button, 'yellow')
     display_result('藍牙: Testing...')
     try:
-        result = subprocess.run('0\\Winmate_Test_GUI\\exes\\BT_subprocess.exe', capture_output=True, text=True)
+        result = subprocess.run(EXES["BT"], capture_output=True, text=True)
         output = result.stdout
     except Exception as e:
         output = str(e)
@@ -266,12 +332,13 @@ def ping():
     fade_to_color(PingTest_subprocess_exe_button, 'yellow')  # 呼吸效果
     display_result('RJ45/Wi-Fi: Testing...')
     try:
-        result = subprocess.run('0\\Winmate_Test_GUI\\exes\\PingTest_subprocess.exe', capture_output=True, text=True)
+        result = subprocess.run(EXES["Ping"], capture_output=True, text=True)
         output = result.stdout
     except Exception as e:
         output = str(e)
 
-    if output.count("PASS") == 3:
+    # 假設這邊您的檔案要檢查 PASS == 4 (原程式如此)
+    if output.count("PASS") == 4:
         fade_to_color(PingTest_subprocess_exe_button, 'green')
     else:
         for i in name_list:
@@ -285,10 +352,10 @@ def ping():
 
 
 def wr():
-    fade_to_color(WR_subprocess_exe_button, 'yellow')  # 呼吸效果
+    fade_to_color(WR_subprocess_exe_button, 'yellow')
     display_result('USB: Testing...')
     try:
-        result = subprocess.run('0\\Winmate_Test_GUI\\exes\\WR_subprocess.exe', capture_output=True, text=True)
+        result = subprocess.run(EXES["WR"], capture_output=True, text=True)
         output = result.stdout
     except Exception as e:
         output = str(e)
@@ -305,10 +372,10 @@ def wr():
 
 
 def rs485():
-    fade_to_color(RS485_subprocess_exe_button, 'yellow')  # 呼吸效果
+    fade_to_color(RS485_subprocess_exe_button, 'yellow')
     display_result('RS485: Testing...')
     try:
-        result = subprocess.run('0\\Winmate_Test_GUI\\exes\\RS485.exe', capture_output=True, text=True)
+        result = subprocess.run(EXES["RS485"], capture_output=True, text=True)
         output = result.stdout
     except Exception as e:
         output = str(e)
@@ -339,12 +406,6 @@ if __name__ == "__main__":
     start_button = tk.Button(window, text="全部啟動", width=140, height=3, command=start_all_thread, font=font_style)
     start_button.grid(row=0, column=0, columnspan=5, pady=10)
 
-    exes = [
-        '.\\0\\Winmate_Test_GUI\\exes\\BT_subprocess.exe',
-        '.\\0\\Winmate_Test_GUI\\exes\\PingTest_subprocess.exe',
-        '.\\0\\Winmate_Test_GUI\\exes\\WR_subprocess.exe',
-        '.\\0\\Winmate_Test_GUI\\exes\\RS485.exe'
-    ]
     button_width = 23
     button_height = 3
 
@@ -384,6 +445,9 @@ if __name__ == "__main__":
     window.grid_columnconfigure(2, weight=1)
     window.grid_columnconfigure(3, weight=1)
     window.grid_columnconfigure(4, weight=1)
+
+    # 啟動程式時，先檢查四個執行檔是否都存在，不存在就彈窗並把四按鈕變紅
+    check_all_exes_and_alert_if_missing()
 
     check_button_thread()
     window.mainloop()
