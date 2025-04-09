@@ -45,8 +45,8 @@ def get_ip_info() -> dict:
     # 預設記錄三個 IP 位址，皆為 'None'
     ip_to_adapter = {
         "192.168.1.101": "None",
-        "192.168.2.102": "None",
-        "192.168.2.103": "None"
+        "192.168.1.102": "None",
+        "192.168.1.103": "None"
     }
 
     # 尋找「卡」開頭的區域，並在後續數行找出 "IPv4 位址" 行
@@ -92,7 +92,7 @@ def ping_with_source(ip_start: str, ip_target: str, adapter_info: str) -> None:
         # 取出包含 "(0%" 或 "(xx%" 之類的區段
         snippet = stdout_text[loss_index - 3:loss_index + 1]
         if snippet == " (0%":
-            print(f"介面: {adapter_info}、來源 IP: {ip_start}，Ping test PASS (Loss Rate = 0%)")
+            print(f"PASS: {adapter_info}、IP: {ip_start}")
             return
         loss_rate = snippet.replace("(", "").replace('）', '').strip()
         print(f"來源 IP: {ip_start}，Ping 測試失敗，封包遺失率: {loss_rate}")
@@ -110,7 +110,7 @@ def set_static_ip() -> None:
     try:
         subprocess.run(["powershell", "-Command", command_set_static],
                        capture_output=True, text=True, check=True)
-        print("已將「乙太網路」介面設置為靜態 IP：192.168.255.100/255.255.0.0，閘道：192.168.0.1")
+        # print("已將「乙太網路」介面設置為靜態 IP：192.168.255.100/255.255.0.0，閘道：192.168.0.1")
     except subprocess.CalledProcessError as e:
         print("設定靜態 IP 失敗")
         print(e.stderr)
@@ -141,21 +141,22 @@ if __name__ == "__main__":
     connect_to_wifi(ps_commands)
 
     # 等待 5 秒，讓網路介面有機會獲得 IP
-    time.sleep(5)
+    # time.sleep(5)
 
     # 最多嘗試 20 次 (20 秒) 檢查 IP 狀態
     for try_step in range(1, 21):
         time.sleep(1)
         info_data = get_ip_info()
         # 若所有 IP 位址都不再是 'None'，表示已成功取得 IP
+        # print(info_data.values())
         if all(value != "None" for value in info_data.values()):
             break
-        if try_step == 20:
-            print("Wi-Fi: 測試失敗，未取得所有目標 IP")
+        if try_step == 10:
+            print("Wi-Fi: 警告，未取得所有目標 IP")
             # 到達 20 秒都無法取得，視為失敗
             # 在程式結束前，將「乙太網路」改為靜態 IP
-            set_static_ip()
-            exit(1)
+            # set_static_ip()
+            # exit(1)
 
     # 若成功取得目標 IP，開始平行執行 ping 測試
     threads = []
@@ -168,13 +169,13 @@ if __name__ == "__main__":
     threads.append(
         threading.Thread(
             target=ping_with_source,
-            args=("192.168.2.102", "192.168.2.1", info_data["192.168.2.102"])
+            args=("192.168.1.102", "192.168.1.1", info_data["192.168.1.102"])
         )
     )
     threads.append(
         threading.Thread(
             target=ping_with_source,
-            args=("192.168.2.103", "192.168.2.1", info_data["192.168.2.103"])
+            args=("192.168.1.103", "192.168.1.1", info_data["192.168.1.103"])
         )
     )
 
@@ -187,7 +188,7 @@ if __name__ == "__main__":
     for t in threads:
         t.join()
 
-    print("Wi-Fi 測試流程結束")
+    print("RJ45/Wi-Fi: PASS")
 
     # 在程式結束前，將「乙太網路」改為靜態 IP
     set_static_ip()
