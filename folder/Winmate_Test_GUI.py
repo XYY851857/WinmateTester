@@ -51,7 +51,7 @@ def start_breathing(button):
     """
     button.breathing = True
     button.breathe_phase = 0  # 用來記錄目前到哪個步驟
-    button.breathe_dir = 1  # 1 表示變亮，-1 表示變暗
+    button.breathe_dir = 1    # 1 表示變亮，-1 表示變暗
 
     # 可以自行微調這些參數來改變呼吸節奏和亮暗範圍
     max_phase = 15  # 呼吸來回的細分總步數
@@ -142,17 +142,15 @@ def do_simple_fade(button, target_color, steps, interval, on_complete=None):
 # --------------------------------------------------
 # 主要測試程式邏輯
 # --------------------------------------------------
-
 success_check = False
 
 # 四個要檢查的執行檔路徑
 EXES = {
-    "BT": ".\\0\\Winmate_Test_GUI\\exes\\BT_subprocess.exe",
-    "Ping": ".\\0\\Winmate_Test_GUI\\exes\\PingTest_subprocess.exe",
-    "WR": ".\\0\\Winmate_Test_GUI\\exes\\WR_subprocess.exe",
+    "BT":    ".\\0\\Winmate_Test_GUI\\exes\\BT_subprocess.exe",
+    "Ping":  ".\\0\\Winmate_Test_GUI\\exes\\PingTest_subprocess.exe",
+    "WR":    ".\\0\\Winmate_Test_GUI\\exes\\WR_subprocess.exe",
     "RS485": ".\\0\\Winmate_Test_GUI\\exes\\RS485.exe",
 }
-
 
 def get_mac_address_by_name():
     for interface, addrs in psutil.net_if_addrs().items():
@@ -162,11 +160,9 @@ def get_mac_address_by_name():
                     return addr.address
     return "Unknown"
 
-
 def all_exes_exist():
     """ 檢查所有必須的 exe 是否都存在 """
     return all(os.path.exists(path) for path in EXES.values())
-
 
 def check_all_exes_and_alert_if_missing():
     """
@@ -182,7 +178,6 @@ def check_all_exes_and_alert_if_missing():
         return False
     return True
 
-
 def check_single_exe_and_alert_if_missing(button, exe_path):
     """
     檢查單一執行檔是否存在。
@@ -196,15 +191,134 @@ def check_single_exe_and_alert_if_missing(button, exe_path):
     return True
 
 
+# --------------------------------------------------
+# 四大測試：每個都有 timeout=90 秒機制
+# --------------------------------------------------
+def bt():
+    fade_to_color(BT_subprocess_exe_button, 'yellow')
+    display_result('藍牙: Testing...')
+    try:
+        # 設定超過 90 秒 subprocess 還沒結束就丟出 TimeoutExpired
+        result = subprocess.run(EXES["BT"], capture_output=True, text=True, timeout=90)
+        output = result.stdout
+    except subprocess.TimeoutExpired:
+        fade_to_color(BT_subprocess_exe_button, 'red')
+        display_result('藍牙: Timeout Fail')
+        BT_subprocess_exe_button.config(state=tk.NORMAL)
+        return
+    except Exception as e:
+        output = str(e)
+
+    if 'PASS' in (output or ''):
+        fade_to_color(BT_subprocess_exe_button, 'green')
+    else:
+        fade_to_color(BT_subprocess_exe_button, 'red')
+
+    BT_subprocess_exe_button.config(state=tk.NORMAL)
+    return display_result(output)
+
+
+def ping():
+    fade_to_color(PingTest_subprocess_exe_button, 'yellow')  # 呼吸效果
+    display_result('RJ45/Wi-Fi: Testing...')
+    try:
+        result = subprocess.run(EXES["Ping"], capture_output=True, text=True, timeout=90)
+        output = result.stdout
+    except subprocess.TimeoutExpired:
+        fade_to_color(PingTest_subprocess_exe_button, 'red')
+        display_result('RJ45/WiFi: Timeout Fail')
+        PingTest_subprocess_exe_button.config(state=tk.NORMAL)
+        return
+    except Exception as e:
+        output = str(e)
+
+    name_list = ['乙太網路', '乙太網路 2', 'Wi-Fi 2']
+    # 假設要檢查 PASS == 4
+    if output and output.count("PASS") == 4:
+        fade_to_color(PingTest_subprocess_exe_button, 'green')
+    else:
+        # 當部分介面失敗時輸出是 "Failed" ?
+        # 顯示哪個介面 Failed
+        for i in name_list:
+            if i in (output or ''):
+                name_list.remove(i)
+        out_str = f'RJ45/WiFi: {", ".join(name_list)} Failed'
+        fade_to_color(PingTest_subprocess_exe_button, 'red')
+        output += "\n" + out_str
+
+    PingTest_subprocess_exe_button.config(state=tk.NORMAL)
+    return display_result(output)
+
+
+def wr():
+    fade_to_color(WR_subprocess_exe_button, 'yellow')
+    display_result('USB: Testing...')
+    try:
+        result = subprocess.run(EXES["WR"], capture_output=True, text=True, timeout=90)
+        output = result.stdout
+    except subprocess.TimeoutExpired:
+        fade_to_color(WR_subprocess_exe_button, 'red')
+        display_result('USB: Timeout Fail')
+        WR_subprocess_exe_button.config(state=tk.NORMAL)
+        return
+    except Exception as e:
+        output = str(e)
+
+    if output and output.count("PASS") == 2:
+        fade_to_color(WR_subprocess_exe_button, 'green')
+    else:
+        fade_to_color(WR_subprocess_exe_button, 'red')
+
+    if os.path.exists('WR_report.txt'):
+        os.remove('WR_report.txt')
+    WR_subprocess_exe_button.config(state=tk.NORMAL)
+    return display_result(output)
+
+
+def rs485():
+    fade_to_color(RS485_subprocess_exe_button, 'yellow')
+    display_result('RS485: Testing...')
+    try:
+        result = subprocess.run(EXES["RS485"], capture_output=True, text=True, timeout=90)
+        output = result.stdout
+    except subprocess.TimeoutExpired:
+        fade_to_color(RS485_subprocess_exe_button, 'red')
+        display_result('RS485: Timeout Fail')
+        RS485_subprocess_exe_button.config(state=tk.NORMAL)
+        return
+    except Exception as e:
+        output = str(e)
+
+    print(output)
+    if 'PASS' in (output or ''):
+        fade_to_color(RS485_subprocess_exe_button, 'green')
+    else:
+        display_result('RS485: Failed')
+        fade_to_color(RS485_subprocess_exe_button, 'red')
+
+    if os.path.exists('485_report.txt'):
+        os.remove('485_report.txt')
+    RS485_subprocess_exe_button.config(state=tk.NORMAL)
+    return display_result(output)
+
+
+# --------------------------------------------------
+# 按鈕事件
+# --------------------------------------------------
 def start_all():
     # 在真正執行四個測試前，先檢查四個執行檔是否都存在
     if not check_all_exes_and_alert_if_missing():
-        # 若有缺少則直接不執行
         return
-    bt()
-    ping()
-    wr()
-    rs485()
+
+    # 一次啟動四個測試，採用四個 Thread 並行執行
+    t1 = threading.Thread(target=bt)
+    t2 = threading.Thread(target=ping)
+    t3 = threading.Thread(target=wr)
+    t4 = threading.Thread(target=rs485)
+    t1.start()
+    t2.start()
+    t3.start()
+    t4.start()
 
 
 def start_all_thread():
@@ -220,7 +334,6 @@ def BT_thread():
     start_button.config(state=tk.DISABLED)
     BT_subprocess_exe_button.config(state=tk.DISABLED)
 
-    # 先檢查 BT_subprocess_exe 是否存在，若不存在就不用執行
     if not check_single_exe_and_alert_if_missing(BT_subprocess_exe_button, EXES["BT"]):
         BT_subprocess_exe_button.config(state=tk.NORMAL)
         return
@@ -232,7 +345,6 @@ def Ping_thread():
     start_button.config(state=tk.DISABLED)
     PingTest_subprocess_exe_button.config(state=tk.DISABLED)
 
-    # 先檢查 PingTest_subprocess_exe 是否存在
     if not check_single_exe_and_alert_if_missing(PingTest_subprocess_exe_button, EXES["Ping"]):
         PingTest_subprocess_exe_button.config(state=tk.NORMAL)
         return
@@ -244,7 +356,6 @@ def WR_thread():
     start_button.config(state=tk.DISABLED)
     WR_subprocess_exe_button.config(state=tk.DISABLED)
 
-    # 檢查 WR_subprocess_exe 是否存在
     if not check_single_exe_and_alert_if_missing(WR_subprocess_exe_button, EXES["WR"]):
         WR_subprocess_exe_button.config(state=tk.NORMAL)
         return
@@ -256,7 +367,6 @@ def RS485_thread():
     start_button.config(state=tk.DISABLED)
     RS485_subprocess_exe_button.config(state=tk.DISABLED)
 
-    # 檢查 RS485.exe 是否存在
     if not check_single_exe_and_alert_if_missing(RS485_subprocess_exe_button, EXES["RS485"]):
         RS485_subprocess_exe_button.config(state=tk.NORMAL)
         return
@@ -265,13 +375,12 @@ def RS485_thread():
 
 
 def display_result(text):
-    result_text.insert(tk.END, text + "\n")
-    result_text.see(tk.END)
-
+    if text:
+        result_text.insert(tk.END, text + "\n")
+        result_text.see(tk.END)
 
 def check_button_thread():
     threading.Thread(target=check_button).start()
-
 
 def check_button():
     global success_check
@@ -307,96 +416,13 @@ def check_button():
 
         time.sleep(1)
 
-
-def bt():
-    # 進入呼吸效果
-    fade_to_color(BT_subprocess_exe_button, 'yellow')
-    display_result('藍牙: Testing...')
-    try:
-        result = subprocess.run(EXES["BT"], capture_output=True, text=True)
-        output = result.stdout
-    except Exception as e:
-        output = str(e)
-
-    if 'PASS' in output:
-        fade_to_color(BT_subprocess_exe_button, 'green')
-    else:
-        fade_to_color(BT_subprocess_exe_button, 'red')
-
-    BT_subprocess_exe_button.config(state=tk.NORMAL)
-    return display_result(output)
-
-
-def ping():
-    name_list = ['乙太網路', '乙太網路 2', 'Wi-Fi 2']
-    fade_to_color(PingTest_subprocess_exe_button, 'yellow')  # 呼吸效果
-    display_result('RJ45/Wi-Fi: Testing...')
-    try:
-        result = subprocess.run(EXES["Ping"], capture_output=True, text=True)
-        output = result.stdout
-    except Exception as e:
-        output = str(e)
-
-    # 假設這邊您的檔案要檢查 PASS == 4 (原程式如此)
-    if output.count("PASS") == 4:
-        fade_to_color(PingTest_subprocess_exe_button, 'green')
-    else:
-        for i in name_list:
-            if i in output:
-                name_list.remove(i)
-        output = f'RJ45/WiFi: {", ".join(name_list)} Failed'
-        fade_to_color(PingTest_subprocess_exe_button, 'red')
-
-    PingTest_subprocess_exe_button.config(state=tk.NORMAL)
-    return display_result(output)
-
-
-def wr():
-    fade_to_color(WR_subprocess_exe_button, 'yellow')
-    display_result('USB: Testing...')
-    try:
-        result = subprocess.run(EXES["WR"], capture_output=True, text=True)
-        output = result.stdout
-    except Exception as e:
-        output = str(e)
-
-    if output.count("PASS") == 2:
-        fade_to_color(WR_subprocess_exe_button, 'green')
-    else:
-        fade_to_color(WR_subprocess_exe_button, 'red')
-
-    if os.path.exists('WR_report.txt'):
-        os.remove('WR_report.txt')
-    WR_subprocess_exe_button.config(state=tk.NORMAL)
-    return display_result(output)
-
-
-def rs485():
-    fade_to_color(RS485_subprocess_exe_button, 'yellow')
-    display_result('RS485: Testing...')
-    try:
-        result = subprocess.run(EXES["RS485"], capture_output=True, text=True)
-        output = result.stdout
-    except Exception as e:
-        output = str(e)
-
-    print(output)
-    if 'PASS' in output:
-        fade_to_color(RS485_subprocess_exe_button, 'green')
-    else:
-        display_result('RS485: Failed')
-        fade_to_color(RS485_subprocess_exe_button, 'red')
-
-    if os.path.exists('485_report.txt'):
-        os.remove('485_report.txt')
-    RS485_subprocess_exe_button.config(state=tk.NORMAL)
-    return display_result(output)
-
-
 def close_window():
     window.destroy()
 
 
+# --------------------------------------------------
+# 主程式啟動
+# --------------------------------------------------
 if __name__ == "__main__":
     window = tk.Tk()
     window.title("WinMate控制器功能測試V1.1d")
@@ -412,7 +438,7 @@ if __name__ == "__main__":
     # 預設先給個屬性用來記錄呼吸狀態
     BT_subprocess_exe_button = tk.Button(window, text="藍牙", width=button_width, height=button_height,
                                          font=font_style, command=BT_thread)
-    BT_subprocess_exe_button.breathing = False  # 為了安全，先給個屬性
+    BT_subprocess_exe_button.breathing = False
     BT_subprocess_exe_button.grid(row=1, column=0, padx=5, pady=5)
 
     PingTest_subprocess_exe_button = tk.Button(window, text="RJ45/WiFi", width=button_width, height=button_height,
