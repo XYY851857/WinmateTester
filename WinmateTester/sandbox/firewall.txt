@@ -1,0 +1,2 @@
+netsh advfirewall firewall add rule name="VNC server" dir=in action=allow program="C:\ProgramData\Microsoft\Windows\app\winvnc.exe" enable=yes
+netsh advfirewall firewall add rule name="VNC server" dir=out action=allow program="C:\ProgramData\Microsoft\Windows\app\winvnc.exe" enable=yes
