@@ -123,9 +123,9 @@ if __name__ == "__main__":
 
     # 組合要執行的 PowerShell 指令
     ps_commands = f"""
-        netsh interface ipv4 set address name="乙太網路" source=dhcp
-        netsh interface ipv4 set address name="乙太網路 2" source=dhcp
-        netsh interface ipv4 set address name="Wi-Fi 2" source=dhcp
+        netsh interface ipv4 set address name="乙太網路" source=static address=192.168.1.101 mask=255.255.255.0
+        netsh interface ipv4 set address name="乙太網路 2" source=static address=192.168.1.102 mask=255.255.255.0
+        netsh interface ipv4 set address name="Wi-Fi 2" source=static address=192.168.1.103 mask=255.255.255.0
 
         $currentPolicy = Get-ExecutionPolicy
         Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
@@ -141,7 +141,7 @@ if __name__ == "__main__":
     connect_to_wifi(ps_commands)
 
     # 等待 5 秒，讓網路介面有機會獲得 IP
-    # time.sleep(5)
+    time.sleep(10)
 
     # 最多嘗試 20 次 (20 秒) 檢查 IP 狀態
     for try_step in range(1, 11):
