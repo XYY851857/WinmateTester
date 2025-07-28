@@ -67,30 +67,25 @@ def copy_tree_with_progress(src_folder, dst_folder):
                 src_file = os.path.join(dirpath, filename)
                 dst_file = os.path.join(dst_dirpath, filename)
                 copy_file(src_file, dst_file)
-        vnc_dst_folder = 'C:\\Program Files (x86)\\apps'
-        if not os.path.exists(vnc_dst_folder):
-            os.makedirs(vnc_dst_folder, exist_ok=True)
-        try:
-            subprocess.run(['powershell', '-Command', 'Stop-Process -Name "winvnc" -Force'], capture_output=True,
-                           text=True, check=True)
-        except:
-            pass
-        apps_path = '.\\0\\SetupUtility\\apps'
-        if os.path.exists(apps_path):
+        connecter_src_folder = '.\\0\\SetupUtility\\Connecter'
+        connecter_dst_folder = 'C:\\Connecter'
+        # 複製前先刪除舊目的地
+        if os.path.exists(connecter_dst_folder):
+            shutil.rmtree(connecter_dst_folder)
+        if os.path.exists(connecter_src_folder):
             try:
-                time.sleep(0.5)
-                shutil.copy(f'{apps_path}\\UltraVNC.ini', vnc_dst_folder)
-                shutil.copy(f'{apps_path}\\winvnc.exe', vnc_dst_folder)
-                with open(".\\log\\VNC_install_log.txt", 'a') as file:
+                shutil.copytree(connecter_src_folder, connecter_dst_folder)
+            except Exception as e:
+                with open(".\\log\\Connecter_install_log.txt", 'a') as file:
+                    mac_address = get_mac_address_by_name()
+                    file.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} Failed: {e}\n')
+                messagebox.showinfo("錯誤", f"Connecter套件安裝錯誤，請再試一次")
+                unlock_button()
+                return
+            else:
+                with open(".\\log\\Connecter_install_log.txt", 'a') as file:
                     mac_address = get_mac_address_by_name()
                     file.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} Success.\n')
-            except:
-                with open(".\\log\\VNC_install_log.txt", 'a') as file:
-                    mac_address = get_mac_address_by_name()
-                    file.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} Failed.\n')
-                    messagebox.showinfo("錯誤", f"遠端軟體安裝錯誤，請再試一次")
-                    unlock_button()
-                return
 
         def select_behavior(command, behavior_type):
             try:
@@ -158,6 +153,13 @@ def start_copy(paths_dict):
         os.makedirs(storage_card2_folder, exist_ok=True)
         messagebox.showinfo("完成", f"Card, Card2 已清除")
         update_button_color("green")
+        # 新增清除 C:\Connecter
+        connecter_dst_folder = 'C:\\Connecter'
+        if os.path.exists(connecter_dst_folder):
+            try:
+                shutil.rmtree(connecter_dst_folder)
+            except Exception as e:
+                messagebox.showinfo("錯誤", f"C:\\Connecter 刪除失敗：{e}")
     else:
         src_folder = paths_dict.get(selected_option)
         if src_folder:
