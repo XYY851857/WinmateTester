@@ -14,6 +14,22 @@ def is_admin():
         return False
 
 
+def find_latest_icpdas_editor():
+    folder = r"D:\ICPDAS_Editor"
+    pattern = re.compile(r"ICPDAS_Editor_V(\d+)_(\d+)_(\d+)\.exe")
+    candidates = []
+    for file in glob.glob(os.path.join(folder, "ICPDAS_Editor_V*.exe")):
+        m = pattern.search(os.path.basename(file))
+        if m:
+            ver_tuple = tuple(int(x) for x in m.groups())
+            candidates.append((ver_tuple, file))
+    if not candidates:
+        return None
+    # 取最大版本號
+    candidates.sort(reverse=True)
+    return candidates[0][1]
+
+
 def find_latest_connecter_launcher():
     folder = r"D:\Update_Repo\Connecter_Launcher"
     pattern = re.compile(r"Connecter_Launcher_V(\d+)_(\d+)_(\d+)\.exe")
