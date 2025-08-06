@@ -60,15 +60,31 @@ def find_latest_connecter_launcher():
     return exe_path, root_folder
 
 
-def main():
-    options = [("VNC_VxComm", "VNC_VxComm"), ("ICPDAS_Editor", "ICPDAS_Editor"), ("Connecter_Launcher", "Connecter_Launcher")]
-    selection = options[0][0]  # Example selection, adjust as needed
 
+def show_selector():
+    root = tk.Tk()
+    root.title("請選擇要執行的項目")
+    root.state("zoomed")  # 全螢幕
+    selected = tk.StringVar(value="VNC_VxComm")
+    options = [("VNC_VxComm", "VNC_VxComm"), ("ICPDAS_Editor", "ICPDAS_Editor"), ("Connecter_Launcher", "Connecter_Launcher")]
+    for i, (text, value) in enumerate(options):
+        tk.Radiobutton(root, text=text, variable=selected, value=value, font=("Arial", 32)).pack(anchor="w", pady=16, padx=80)
+    def on_ok():
+        root.quit()
+    tk.Button(root, text="確定", command=on_ok, width=16, font=("Arial", 28)).pack(pady=24)
+    root.mainloop()
+    result = selected.get()
+    root.destroy()
+    return result
+
+def main():
     if not is_admin():
         print("目前權限不足，正在嘗試以管理員權限重新執行...")
         ctypes.windll.shell32.ShellExecuteW(
             None, "runas", sys.executable, " ".join(sys.argv), None, 1)
         sys.exit(0)
+
+    selection = show_selector()
 
     if selection == "VNC_VxComm":
         ret = subprocess.run(r"D:\VNC_VxComm.bat", shell=True)
@@ -76,7 +92,6 @@ def main():
             print("執行 VNC_VxComm.bat 失敗")
             return
     elif selection == "ICPDAS_Editor":
-        # Assuming find_latest_icpdas_editor() is defined elsewhere
         exe_path = find_latest_icpdas_editor()
         if not exe_path:
             print("找不到 ICPDAS_Editor 的執行檔")
