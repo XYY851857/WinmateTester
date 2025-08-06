@@ -134,7 +134,6 @@ def main():
             print(f"執行 {dst_exe} 失敗")
             return
 
-    subprocess.Popen(r"C:\Storage Card\Autorun.vbs", shell=True)
     return
 
 
