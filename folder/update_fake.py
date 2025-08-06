@@ -28,7 +28,7 @@ def is_admin():
 
 
 def find_latest_icpdas_editor():
-    folder = r"D:\Update_Repo\ICPDAS_Editor"
+    folder = r"D:\S8521\Update_Repo\ICPDAS_Editor"
     pattern = re.compile(r"ICPDAS_Editor_V(\d+)_(\d+)_(\d+)\.exe")
     candidates = []
     for file in glob.glob(os.path.join(folder, "ICPDAS_Editor_V*.exe")):
@@ -44,7 +44,7 @@ def find_latest_icpdas_editor():
 
 
 def find_latest_connecter_launcher():
-    folder = r"D:\Update_Repo\Connecter_Launcher"
+    folder = r"D:\S8521\Update_Repo\Connecter_Launcher"
     pattern = re.compile(r"Connecter_Launcher_V(\d+)_(\d+)_(\d+)\.exe")
     candidates = []
     for file in glob.glob(os.path.join(folder, "Connecter_Launcher_V*.exe")):
