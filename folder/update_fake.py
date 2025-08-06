@@ -65,15 +65,23 @@ def show_selector():
     root = tk.Tk()
     root.title("請選擇要執行的項目")
     root.state("zoomed")  # 全螢幕
-    selected = tk.StringVar(value="VNC_VxComm")
-    options = [("VNC_VxComm", "VNC_VxComm"), ("ICPDAS_Editor", "ICPDAS_Editor"), ("Connecter_Launcher", "Connecter_Launcher")]
-    for i, (text, value) in enumerate(options):
-        tk.Radiobutton(root, text=text, variable=selected, value=value, font=("Arial", 32)).pack(anchor="w", pady=16, padx=80)
-    def on_ok():
+    selection = tk.StringVar(value="VNC_VxComm")
+
+    def do_select(value):
+        selection.set(value)
         root.quit()
-    tk.Button(root, text="確定", command=on_ok, width=16, font=("Arial", 28)).pack(pady=24)
+
+    btn_style = {"font": ("Arial", 54), "width": 18, "height": 3, "padx": 24, "pady": 36}
+    btns = [
+        tk.Button(root, text="VNC_VxComm", command=lambda: do_select("VNC_VxComm"), **btn_style),
+        tk.Button(root, text="ICPDAS_Editor", command=lambda: do_select("ICPDAS_Editor"), **btn_style),
+        tk.Button(root, text="Connecter_Launcher", command=lambda: do_select("Connecter_Launcher"), **btn_style),
+    ]
+    for b in btns:
+        b.pack(pady=40, padx=80, fill="x")
+
     root.mainloop()
-    result = selected.get()
+    result = selection.get()
     root.destroy()
     return result
 
