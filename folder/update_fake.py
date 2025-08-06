@@ -44,7 +44,7 @@ def find_latest_icpdas_editor():
 
 
 def find_latest_connecter_launcher():
-    folder = r"D:\S8521\Update_Repo\Connecter_Launcher"
+    folder = r"D:\S8521\Update_Repo\Connecter"
     pattern = re.compile(r"Connecter_Launcher_V(\d+)_(\d+)_(\d+)\.exe")
     candidates = []
     for file in glob.glob(os.path.join(folder, "Connecter_Launcher_V*.exe")):
