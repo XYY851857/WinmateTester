@@ -61,6 +61,9 @@ def show_selector():
     def do_select(value):
         selection.set(value)
         root.quit()
+    def do_exit():
+        selection.set("")
+        root.quit()
 
     btn_style = {
         "font": ("Arial", 36),
@@ -80,10 +83,17 @@ def show_selector():
     for b in btns:
         b.pack(side="top", fill="both", expand=True, pady=15)
 
+    # 新增離開按鈕
+    exit_btn = tk.Button(frame, text="離開", command=do_exit,
+                        font=("Arial", 32, "bold"),
+                        bg="#e57373", activebackground="#ffcdd2",
+                        relief="raised", bd=4, fg="#ffffff", height=1)
+    exit_btn.pack(side="bottom", fill="x", padx=100, pady=30)
+
     root.mainloop()
     result = selection.get()
     root.destroy()
-    return result
+    return result if result else None
 
 def main():
     if not is_admin():
@@ -93,6 +103,9 @@ def main():
         sys.exit(0)
 
     selection = show_selector()
+
+    if selection is None:
+        return
 
     if selection == "VNC_VxComm":
         ret = subprocess.run(r"D:\VNC_VxComm.bat", shell=True)
