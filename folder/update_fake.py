@@ -64,21 +64,32 @@ def find_latest_connecter_launcher():
 def show_selector():
     root = tk.Tk()
     root.title("請選擇要執行的項目")
-    root.state("zoomed")  # 全螢幕
+    root.geometry("1024x600+0+0")
+    root.resizable(False, False)
     selection = tk.StringVar(value="VNC_VxComm")
 
     def do_select(value):
         selection.set(value)
         root.quit()
 
-    btn_style = {"font": ("Arial", 54), "width": 18, "height": 3, "padx": 24, "pady": 36}
+    btn_style = {
+        "font": ("Arial", 32),
+        "padx": 8,
+        "pady": 12,
+        "height": 2,
+        "bg": "#f0f0f0",
+        "activebackground": "#e1e1e1"
+    }
+    frame = tk.Frame(root, bg="#ffffff")
+    frame.pack(fill="both", expand=True, pady=24)
+
     btns = [
-        tk.Button(root, text="VNC_VxComm", command=lambda: do_select("VNC_VxComm"), **btn_style),
-        tk.Button(root, text="ICPDAS_Editor", command=lambda: do_select("ICPDAS_Editor"), **btn_style),
-        tk.Button(root, text="Connecter_Launcher", command=lambda: do_select("Connecter_Launcher"), **btn_style),
+        tk.Button(frame, text="VNC_VxComm", command=lambda: do_select("VNC_VxComm"), **btn_style),
+        tk.Button(frame, text="ICPDAS_Editor", command=lambda: do_select("ICPDAS_Editor"), **btn_style),
+        tk.Button(frame, text="Connecter_Launcher", command=lambda: do_select("Connecter_Launcher"), **btn_style),
     ]
     for b in btns:
-        b.pack(pady=40, padx=80, fill="x")
+        b.pack(pady=20, padx=40, fill="x")
 
     root.mainloop()
     result = selection.get()
