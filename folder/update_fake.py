@@ -6,6 +6,18 @@ import os
 import re
 import glob
 import shutil
+import tkinter as tk
+from tkinter import messagebox
+
+
+def show_loading():
+    loading_root = tk.Toplevel()
+    loading_root.title("請稍候")
+    loading_root.geometry("380x160+400+300")
+    loading_root.attributes("-topmost", True)
+    tk.Label(loading_root, text="啟動中.....", font=("Arial", 24)).pack(expand=True)
+    loading_root.update()
+    return loading_root
 
 
 def is_admin():
@@ -83,8 +95,26 @@ def main():
         if os.path.exists(dst_folder):
             shutil.rmtree(dst_folder)
         shutil.copytree(src_folder, dst_folder)
-        dst_exe = os.path.join(dst_folder, os.path.basename(exe_path))
+        # 複製完成後再搜尋 C:\Connecter 最新 exe
+        pattern = re.compile(r"Connecter_Launcher_V(\d+)_(\d+)_(\d+)\.exe")
+        candidates = []
+        for file in glob.glob(os.path.join(dst_folder, "Connecter_Launcher_V*.exe")):
+            m = pattern.search(os.path.basename(file))
+            if m:
+                ver_tuple = tuple(int(x) for x in m.groups())
+                candidates.append((ver_tuple, file))
+        if not candidates:
+            print("C:\\Connecter 裡找不到 Connecter_Launcher 執行檔")
+            return
+        candidates.sort(reverse=True)
+        dst_exe = candidates[0][1]
+        # 顯示啟動中
+        root = tk.Tk()
+        root.withdraw()
+        loading = show_loading()
         ret = subprocess.run(f'"{dst_exe}"', shell=True)
+        loading.destroy()
+        root.destroy()
         if ret.returncode != 0:
             print(f"執行 {dst_exe} 失敗")
             return
