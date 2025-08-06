@@ -10,16 +10,6 @@ import tkinter as tk
 from tkinter import messagebox
 
 
-def show_loading():
-    loading_root = tk.Toplevel()
-    loading_root.title("請稍候")
-    loading_root.geometry("380x160+400+300")
-    loading_root.attributes("-topmost", True)
-    tk.Label(loading_root, text="啟動中.....", font=("Arial", 24)).pack(expand=True)
-    loading_root.update()
-    return loading_root
-
-
 def is_admin():
     try:
         return ctypes.windll.shell32.IsUserAnAdmin()
@@ -141,13 +131,7 @@ def main():
             return
         candidates.sort(reverse=True)
         dst_exe = candidates[0][1]
-        # 顯示啟動中
-        root = tk.Tk()
-        root.withdraw()
-        loading = show_loading()
         ret = subprocess.run(f'"{dst_exe}"', shell=True)
-        loading.destroy()
-        root.destroy()
         if ret.returncode != 0:
             print(f"執行 {dst_exe} 失敗")
             return
