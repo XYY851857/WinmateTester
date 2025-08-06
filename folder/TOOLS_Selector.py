@@ -64,8 +64,8 @@ def find_latest_connecter_launcher():
 def show_selector():
     root = tk.Tk()
     root.title("請選擇要執行的項目")
-    root.geometry("1024x600+0+0")
-    root.resizable(False, False)
+    # 最大化
+    root.state("zoomed")
     selection = tk.StringVar(value="VNC_VxComm")
 
     def do_select(value):
@@ -73,15 +73,14 @@ def show_selector():
         root.quit()
 
     btn_style = {
-        "font": ("Arial", 32),
-        "padx": 8,
-        "pady": 12,
-        "height": 2,
+        "font": ("Arial", 36),
         "bg": "#f0f0f0",
-        "activebackground": "#e1e1e1"
+        "activebackground": "#e1e1e1",
+        "relief": "raised",
+        "bd": 3,
     }
     frame = tk.Frame(root, bg="#ffffff")
-    frame.pack(fill="both", expand=True, pady=24)
+    frame.pack(fill="both", expand=True, padx=40, pady=40)
 
     btns = [
         tk.Button(frame, text="VNC_VxComm", command=lambda: do_select("VNC_VxComm"), **btn_style),
@@ -89,7 +88,7 @@ def show_selector():
         tk.Button(frame, text="Connecter_Launcher", command=lambda: do_select("Connecter_Launcher"), **btn_style),
     ]
     for b in btns:
-        b.pack(pady=20, padx=40, fill="x")
+        b.pack(side="top", fill="both", expand=True, pady=15)
 
     root.mainloop()
     result = selection.get()
