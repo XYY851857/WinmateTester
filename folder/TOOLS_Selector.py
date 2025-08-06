@@ -65,7 +65,7 @@ def show_selector():
     root = tk.Tk()
     root.title("請選擇要執行的項目")
     # 最大化
-    root.state("zoomed")
+    root.attributes("-fullscreen", True)
     selection = tk.StringVar(value="VNC_VxComm")
 
     def do_select(value):
