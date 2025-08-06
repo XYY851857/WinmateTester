@@ -15,7 +15,7 @@ def is_admin():
 
 
 def find_latest_icpdas_editor():
-    folder = r"D:\ICPDAS_Editor"
+    folder = r"D:\Update_Repo\ICPDAS_Editor"
     pattern = re.compile(r"ICPDAS_Editor_V(\d+)_(\d+)_(\d+)\.exe")
     candidates = []
     for file in glob.glob(os.path.join(folder, "ICPDAS_Editor_V*.exe")):
