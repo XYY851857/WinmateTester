@@ -5,6 +5,7 @@ import ctypes
 import os
 import re
 import glob
+import shutil
 
 
 def is_admin():
@@ -40,9 +41,11 @@ def find_latest_connecter_launcher():
             ver_tuple = tuple(int(x) for x in m.groups())
             candidates.append((ver_tuple, file))
     if not candidates:
-        return None
+        return None, None
     candidates.sort(reverse=True)
-    return candidates[0][1]
+    exe_path = candidates[0][1]
+    root_folder = os.path.dirname(exe_path)
+    return exe_path, root_folder
 
 
 def main():
@@ -71,13 +74,19 @@ def main():
             print(f"執行 {exe_path} 失敗")
             return
     elif selection == "Connecter_Launcher":
-        exe_path = find_latest_connecter_launcher()
-        if not exe_path:
+        exe_path, src_folder = find_latest_connecter_launcher()
+        if not exe_path or not src_folder:
             print("找不到 Connecter_Launcher 的執行檔")
             return
-        ret = subprocess.run(f'"{exe_path}"', shell=True)
+        dst_folder = r"C:\Connecter"
+        # 先刪除目標再複製
+        if os.path.exists(dst_folder):
+            shutil.rmtree(dst_folder)
+        shutil.copytree(src_folder, dst_folder)
+        dst_exe = os.path.join(dst_folder, os.path.basename(exe_path))
+        ret = subprocess.run(f'"{dst_exe}"', shell=True)
         if ret.returncode != 0:
-            print(f"執行 {exe_path} 失敗")
+            print(f"執行 {dst_exe} 失敗")
             return
 
     subprocess.Popen(r"C:\Storage Card\Autorun.vbs", shell=True)
