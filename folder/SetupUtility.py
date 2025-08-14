@@ -214,12 +214,59 @@ def warning_font_color():
         time.sleep(1)
 
 
+def _add_fw_rule_port(port, proto="TCP", profiles="any"):
+    """建立針對指定連接埠的入站允許規則（放行所有程式）。
+    會先嘗試刪除同名規則避免重複。
+    規則名稱不含空白，避免 netsh 引數分割問題。
+    """
+    name = f"SetupUtility_Allow_{proto}_{port}"
+    # 先刪除可能存在的同名規則（忽略失敗）
+    subprocess.run(
+        f'netsh advfirewall firewall delete rule name={name}',
+        capture_output=True, text=True, shell=True
+    )
+    # 新增規則（針對指定埠、指定協定，套用於所有網路設定檔 profile=any）
+    cmd = (
+        f'netsh advfirewall firewall add rule name={name} '
+        f'dir=in action=allow protocol={proto} localport={port} '
+        f'profile={profiles}'
+    )
+    subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
+
+
+def setup_firewall_rules():
+    """在背景執行緒中建立需要的防火牆規則。"""
+    try:
+        # 依需求：放行 502 與 5001（TCP/UDP），所有程式可用，套用於所有網路設定檔（profile=any）。
+        for port in (502, 5001):
+            for proto in ("TCP", "UDP"):
+                _add_fw_rule_port(port, proto, "any")
+        # 紀錄成功日誌
+        try:
+            os.makedirs('.\\log', exist_ok=True)
+            with open(".\\log\\SetupUtility_FW_log.txt", "a", encoding="utf-8") as file:
+                mac_address = get_mac_address_by_name()
+                file.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} FW rules applied for TCP/UDP ports 502, 5001 (profiles=any)\n')
+        except Exception:
+            pass
+    except Exception as e:
+        # 記錄錯誤但不影響 GUI 啟動
+        try:
+            os.makedirs('.\\log', exist_ok=True)
+            with open(".\\log\\SetupUtility_ERROR_report.txt", "a", encoding="utf-8") as errfile:
+                errfile.write(f'Firewall setup failed: {e}\n')
+        except Exception:
+            pass
+
+
 def create_gui():
     global root, progress_var, combo, start_button, end_button, entry, listbox, launch_photo_button
     global warning_label
     result, detail = addition_command()
     if result is False:
         return False, detail
+    # 防火牆規則在背景執行緒設定，主執行緒繼續渲染 GUI
+    threading.Thread(target=setup_firewall_rules, daemon=True).start()
     root = tk.Tk()
     root.title("SetupUtility")
     root.attributes('-fullscreen', True)
