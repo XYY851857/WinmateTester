@@ -8,6 +8,7 @@ from tkinter import messagebox
 from tkinter.ttk import Progressbar
 import threading
 import psutil
+import ctypes
 
 
 def get_mac_address_by_name():
@@ -215,13 +216,9 @@ def warning_font_color():
 
 
 def _add_fw_rule_port(port, proto="TCP", profiles="any"):
-    """建立針對指定連接埠的入站允許規則（放行所有程式）。
-    會先嘗試刪除同名規則避免重複。
-    規則名稱不含空白，避免 netsh 引數分割問題。
-    """
     name = f"SetupUtility_Allow_{proto}_{port}"
     # 先刪除可能存在的同名規則（忽略失敗）
-    subprocess.run(
+    del_res = subprocess.run(
         f'netsh advfirewall firewall delete rule name={name}',
         capture_output=True, text=True, shell=True
     )
@@ -231,29 +228,65 @@ def _add_fw_rule_port(port, proto="TCP", profiles="any"):
         f'dir=in action=allow protocol={proto} localport={port} '
         f'profile={profiles}'
     )
-    subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
+    add_res = subprocess.run(cmd, capture_output=True, text=True, shell=True)
+    # 回傳是否成功與輸出，讓上層決定如何紀錄/顯示
+    return (add_res.returncode == 0), (add_res.stdout or ''), (add_res.stderr or '')
+
+
+def _is_admin():
+    try:
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return False
+
+
+def _has_fw_rule(name: str) -> bool:
+    """Return True if a firewall rule with the given DisplayName exists (locale-independent)."""
+    try:
+        ps_cmd = (
+            f'$r = Get-NetFirewallRule -DisplayName "{name}" -ErrorAction SilentlyContinue; '
+            f'if ($r) {{ exit 0 }} else {{ exit 1 }}'
+        )
+        res = subprocess.run(['powershell', '-NoProfile', '-Command', ps_cmd], capture_output=True, text=True)
+        return res.returncode == 0
+    except Exception:
+        return False
 
 
 def setup_firewall_rules():
-    """在背景執行緒中建立需要的防火牆規則。"""
     try:
-        # 依需求：放行 502 與 5001（TCP/UDP），所有程式可用，套用於所有網路設定檔（profile=any）。
+        os.makedirs('.\\log', exist_ok=True)
+        log_path = '.\\log\\SetupUtility_FW_log.txt'
+        mac_address = get_mac_address_by_name()
+        ts = datetime.now().strftime("%Y%m%d:%H%M%S")
+
+        if not _is_admin():
+            with open(log_path, 'a', encoding='utf-8') as file:
+                file.write(f'{ts}: {mac_address} SKIP: not running as Administrator, firewall rules not applied.\n')
+            return
+
+        results = []
         for port in (502, 5001):
             for proto in ("TCP", "UDP"):
-                _add_fw_rule_port(port, proto, "any")
-        # 紀錄成功日誌
-        try:
-            os.makedirs('.\\log', exist_ok=True)
-            with open(".\\log\\SetupUtility_FW_log.txt", "a", encoding="utf-8") as file:
-                mac_address = get_mac_address_by_name()
-                file.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} FW rules applied for TCP/UDP ports 502, 5001 (profiles=any)\n')
-        except Exception:
-            pass
+                ok, out, err = _add_fw_rule_port(port, proto, "any")
+                name = f"SetupUtility_Allow_{proto}_{port}"
+                verified = _has_fw_rule(name) if ok else False
+                status = 'Success' if (ok and verified) else 'Failed'
+                results.append((name, status, out, err))
+
+        with open(log_path, 'a', encoding='utf-8') as file:
+            file.write(f'{ts}: {mac_address} Applying FW rules for TCP/UDP ports 502, 5001 (profiles=any)\n')
+            for name, status, out, err in results:
+                file.write(f'  {name}: {status}\n')
+                if status != 'Success':
+                    if out.strip():
+                        file.write(f'    stdout: {out.strip()}\n')
+                    if err.strip():
+                        file.write(f'    stderr: {err.strip()}\n')
     except Exception as e:
-        # 記錄錯誤但不影響 GUI 啟動
         try:
             os.makedirs('.\\log', exist_ok=True)
-            with open(".\\log\\SetupUtility_ERROR_report.txt", "a", encoding="utf-8") as errfile:
+            with open('.\\log\\SetupUtility_ERROR_report.txt', 'a', encoding='utf-8') as errfile:
                 errfile.write(f'Firewall setup failed: {e}\n')
         except Exception:
             pass
