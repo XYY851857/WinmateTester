@@ -10,6 +10,8 @@ import threading
 import psutil
 import ctypes
 
+FW_DONE = threading.Event()
+
 
 def get_mac_address_by_name():
     for interface, addrs in psutil.net_if_addrs().items():
@@ -118,7 +120,7 @@ def copy_tree_with_progress(src_folder, dst_folder):
 
 def unlock_button():
     start_button.config(state=tk.NORMAL)
-    end_button.config(state=tk.NORMAL)
+    end_button.config(state=tk.NORMAL if FW_DONE.is_set() else tk.DISABLED)
     return
 
 
@@ -290,6 +292,12 @@ def setup_firewall_rules():
                 errfile.write(f'Firewall setup failed: {e}\n')
         except Exception:
             pass
+    finally:
+        # 無論成功/失敗/早退，皆標記為已完成，讓 UI 能解鎖「結束程序」
+        try:
+            FW_DONE.set()
+        except Exception:
+            pass
 
 
 def create_gui():
@@ -337,6 +345,17 @@ def create_gui():
 
     end_button = tk.Button(button_frame, text="結束程序", command=close_app, font=font)
     end_button.pack(side='left', padx=5, expand=True, fill='x')
+
+    # 直到防火牆規則處理完成前，保持「結束程序」鎖定
+    end_button.config(state=tk.DISABLED)
+
+    def _check_fw_done():
+        if FW_DONE.is_set():
+            end_button.config(state=tk.NORMAL)
+        else:
+            root.after(200, _check_fw_done)
+
+    root.after(200, _check_fw_done)
 
     progress_frame = tk.Frame(root)
     progress_frame.pack(pady=5, padx=20, fill='x')
