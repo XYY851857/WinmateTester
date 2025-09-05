@@ -7,7 +7,7 @@ import re
 import glob
 import shutil
 import tkinter as tk
-from tkinter import messagebox
+from typing import List
 
 
 def is_admin():
@@ -50,13 +50,36 @@ def find_latest_connecter_launcher():
     return exe_path, root_folder
 
 
+def run_generic_tool(name: str):
+    """在 D:\\S8521\\Update_Repo\\{name} 資料夾中找到最新版本的 {name}_V*.exe 並執行"""
+    base_dir = r"D:\S8521\Update_Repo"
+    folder = os.path.join(base_dir, name)
+    if not os.path.isdir(folder):
+        print(f"資料夾 {folder} 不存在")
+        return
+    pattern = re.compile(fr"{re.escape(name)}_V(\d+)_(\d+)_(\d+)\.exe", re.I)
+    candidates = []
+    for file in glob.glob(os.path.join(folder, f"{name}_V*.exe")):
+        m = pattern.search(os.path.basename(file))
+        if m:
+            ver_tuple = tuple(int(x) for x in m.groups())
+            candidates.append((ver_tuple, file))
+    if not candidates:
+        print(f"{folder} 內找不到執行檔")
+        return
+    candidates.sort(reverse=True)
+    exe_path = candidates[0][1]
+    subprocess.run(f'"{exe_path}"', shell=True)
+
 
 def show_selector():
     root = tk.Tk()
     root.title("請選擇要執行的項目")
     # 最大化
     root.attributes("-fullscreen", True)
-    selection = tk.StringVar(value="VNC_VxComm")
+    selection = tk.StringVar(value="")
+
+    base_dir = r"D:\S8521\Update_Repo"
 
     def do_select(value):
         selection.set(value)
@@ -75,13 +98,16 @@ def show_selector():
     frame = tk.Frame(root, bg="#ffffff")
     frame.pack(fill="both", expand=True, padx=40, pady=40)
 
-    btns = [
-        tk.Button(frame, text="VNC_VxComm", command=lambda: do_select("VNC_VxComm"), **btn_style),
-        tk.Button(frame, text="ICPDAS_Editor", command=lambda: do_select("ICPDAS_Editor"), **btn_style),
-        tk.Button(frame, text="Connecter_Launcher", command=lambda: do_select("Connecter_Launcher"), **btn_style),
-    ]
-    for b in btns:
-        b.pack(side="top", fill="both", expand=True, pady=15)
+    # 動態偵測資料夾生成按鈕
+    folders: List[str] = sorted([d for d in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, d))])
+    if "VNC_VxComm" not in folders:
+        folders.insert(0, "VNC_VxComm")  # 仍顯示 VNC_VxComm
+
+    for folder_name in folders:
+        tk.Button(frame,
+                  text=folder_name,
+                  command=lambda v=folder_name: do_select(v),
+                  **btn_style).pack(side="top", fill="both", expand=True, pady=15)
 
     # 新增離開按鈕
     exit_btn = tk.Button(frame, text="離開", command=do_exit,
@@ -148,6 +174,9 @@ def main():
         if ret.returncode != 0:
             print(f"執行 {dst_exe} 失敗")
             return
+    else:
+        # generic handler for any folder detected
+        run_generic_tool(selection)
 
     return
 
