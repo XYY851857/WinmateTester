@@ -5,7 +5,6 @@ import ctypes
 import os
 import re
 import glob
-import shutil
 import tkinter as tk
 from typing import List
 
@@ -17,56 +16,39 @@ def is_admin():
         return False
 
 
-def find_latest_icpdas_editor():
-    folder = r"D:\S8521\Update_Repo\ICPDAS_Editor"
-    pattern = re.compile(r"ICPDAS_Editor_V(\d+)_(\d+)_(\d+)\.exe")
-    candidates = []
-    for file in glob.glob(os.path.join(folder, "ICPDAS_Editor_V*.exe")):
-        m = pattern.search(os.path.basename(file))
-        if m:
-            ver_tuple = tuple(int(x) for x in m.groups())
-            candidates.append((ver_tuple, file))
-    if not candidates:
-        return None
-    # 取最大版本號
-    candidates.sort(reverse=True)
-    return candidates[0][1]
-
-
-def find_latest_connecter_launcher():
-    folder = r"D:\S8521\Update_Repo\Connecter"
-    pattern = re.compile(r"Connecter_Launcher_V(\d+)_(\d+)_(\d+)\.exe")
-    candidates = []
-    for file in glob.glob(os.path.join(folder, "Connecter_Launcher_V*.exe")):
-        m = pattern.search(os.path.basename(file))
-        if m:
-            ver_tuple = tuple(int(x) for x in m.groups())
-            candidates.append((ver_tuple, file))
-    if not candidates:
-        return None, None
-    candidates.sort(reverse=True)
-    exe_path = candidates[0][1]
-    root_folder = os.path.dirname(exe_path)
-    return exe_path, root_folder
-
-
 def run_generic_tool(name: str):
-    """在 D:\\S8521\\Update_Repo\\{name} 資料夾中找到最新版本的 {name}_V*.exe 並執行"""
+    """根據子資料夾名稱 name，優先在
+    D:\S8521\Update_Repo\{name}\{name}_V*.exe 找最新版本；
+    若找不到，再到 D:\S8521\Update_Repo\{name}_V*.exe 搜尋。
+    """
     base_dir = r"D:\S8521\Update_Repo"
-    folder = os.path.join(base_dir, name)
-    if not os.path.isdir(folder):
-        print(f"資料夾 {folder} 不存在")
-        return
-    pattern = re.compile(fr"{re.escape(name)}_V(\d+)_(\d+)_(\d+)\.exe", re.I)
     candidates = []
-    for file in glob.glob(os.path.join(folder, f"{name}_V*.exe")):
+    pattern = re.compile(fr"{re.escape(name)}_V(\d+)_(\d+)_(\d+)\.exe", re.I)
+
+    # 1) 子資料夾內搜尋
+    folder = os.path.join(base_dir, name)
+    if os.path.isdir(folder):
+        for file in glob.glob(os.path.join(folder, f"{name}_V*.exe")):
+            m = pattern.search(os.path.basename(file))
+            if m:
+                ver_tuple = tuple(int(x) for x in m.groups())
+                candidates.append((ver_tuple, file))
+
+    # 2) 直接在 Update_Repo 根目錄搜尋（與使用者示例相容）
+    for file in glob.glob(os.path.join(base_dir, f"{name}_V*.exe")):
         m = pattern.search(os.path.basename(file))
         if m:
             ver_tuple = tuple(int(x) for x in m.groups())
             candidates.append((ver_tuple, file))
+
     if not candidates:
-        print(f"{folder} 內找不到執行檔")
+        print(
+            f"找不到 {name} 的版本化執行檔：\n"
+            f" - {os.path.join(folder, name + '_V*.exe')}\n"
+            f" - {os.path.join(base_dir, name + '_V*.exe')}"
+        )
         return
+
     candidates.sort(reverse=True)
     exe_path = candidates[0][1]
     subprocess.run(f'"{exe_path}"', shell=True)
@@ -98,10 +80,8 @@ def show_selector():
     frame = tk.Frame(root, bg="#ffffff")
     frame.pack(fill="both", expand=True, padx=40, pady=40)
 
-    # 動態偵測資料夾生成按鈕
+    # 動態偵測資料夾生成按鈕（完全依據實際存在的子資料夾）
     folders: List[str] = sorted([d for d in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, d))])
-    if "VNC_VxComm" not in folders:
-        folders.insert(0, "VNC_VxComm")  # 仍顯示 VNC_VxComm
 
     for folder_name in folders:
         tk.Button(frame,
@@ -130,53 +110,11 @@ def main():
 
     selection = show_selector()
 
-    if selection is None:
+    if not selection:
         return
 
-    if selection == "VNC_VxComm":
-        ret = subprocess.run(r"D:\VNC_VxComm.bat", shell=True)
-        if ret.returncode != 0:
-            print("執行 VNC_VxComm.bat 失敗")
-            return
-    elif selection == "ICPDAS_Editor":
-        exe_path = find_latest_icpdas_editor()
-        if not exe_path:
-            print("找不到 ICPDAS_Editor 的執行檔")
-            return
-        ret = subprocess.run(f'"{exe_path}"', shell=True)
-        if ret.returncode != 0:
-            print(f"執行 {exe_path} 失敗")
-            return
-    elif selection == "Connecter_Launcher":
-        exe_path, src_folder = find_latest_connecter_launcher()
-        if not exe_path or not src_folder:
-            print("找不到 Connecter_Launcher 的執行檔")
-            return
-        dst_folder = r"C:\Connecter"
-        # 先刪除目標再複製
-        if os.path.exists(dst_folder):
-            shutil.rmtree(dst_folder)
-        shutil.copytree(src_folder, dst_folder)
-        # 複製完成後再搜尋 C:\Connecter 最新 exe
-        pattern = re.compile(r"Connecter_Launcher_V(\d+)_(\d+)_(\d+)\.exe")
-        candidates = []
-        for file in glob.glob(os.path.join(dst_folder, "Connecter_Launcher_V*.exe")):
-            m = pattern.search(os.path.basename(file))
-            if m:
-                ver_tuple = tuple(int(x) for x in m.groups())
-                candidates.append((ver_tuple, file))
-        if not candidates:
-            print("C:\\Connecter 裡找不到 Connecter_Launcher 執行檔")
-            return
-        candidates.sort(reverse=True)
-        dst_exe = candidates[0][1]
-        ret = subprocess.run(f'"{dst_exe}"', shell=True)
-        if ret.returncode != 0:
-            print(f"執行 {dst_exe} 失敗")
-            return
-    else:
-        # generic handler for any folder detected
-        run_generic_tool(selection)
+    # 全改為動態：根據被點擊的子資料夾名稱，自動尋找對應的 {name}_V*.exe 並執行
+    run_generic_tool(selection)
 
     return
 
