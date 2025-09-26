@@ -49,6 +49,19 @@ def clear_directory(directory):
 
 def copy_tree_with_progress(src_folder, dst_folder):
     total_files = sum([len(files) for r, d, files in os.walk(src_folder)])
+    # 新增：共通附加檔案清單（不論選擇哪個項目都會一起複製）
+    extra_copies = [
+        (r'.\\0\\SetupUtility\\data\\WebServer\\Newtonsoft.Json.Compact.dll', r'C:\\Storage Card'),
+        (r'.\\0\\SetupUtility\\data\\WebServer\\nModbusCE.dll',              r'C:\\Storage Card'),
+        (r'.\\0\\SetupUtility\\data\\WebServer\\WebserverCe.dll',            r'C:\\Storage Card'),
+        (r'.\\0\\SetupUtility\\data\\WebServer\\WebServerUDP.exe',           r'C:\\Storage Card'),
+        (r'.\\0\\SetupUtility\\data\\WebServer\\HackTimer.js',               r'C:\\Windows\\www\\wwwpub'),
+        (r'.\\0\\SetupUtility\\data\\WebServer\\terchy.html',                r'C:\\Windows\\www\\wwwpub'),
+    ]
+    # 僅計入實際存在的附加檔案到總數，避免顯示進度異常
+    extra_existing = [src for src, _ in extra_copies if os.path.isfile(src)]
+    total_files += len(extra_existing)
+
     copied_files = 0
 
     def copy_file(src_file, dst_file):
@@ -97,6 +110,44 @@ def copy_tree_with_progress(src_folder, dst_folder):
             except:
                 messagebox.showinfo("錯誤", f"{behavior_type}執行錯誤，請從系統左下角手動點擊關機")
                 unlock_button()
+
+        # 新增：複製共通附加檔案到指定目的地（存在才複製；失敗寫入 log 不中斷流程）
+        try:
+            os.makedirs('.\\log', exist_ok=True)
+            extra_log_path = '.\\log\\SetupUtility_EXTRA_copy_log.txt'
+        except Exception:
+            extra_log_path = None
+
+        # 嚴格模式：任何一個檔案失敗就警示並中止後續關機/重啟
+        extra_failures = []
+
+        for src_path, dst_dir in extra_copies:
+            try:
+                if os.path.isfile(src_path):
+                    os.makedirs(dst_dir, exist_ok=True)
+                    dst_file = os.path.join(dst_dir, os.path.basename(src_path))
+                    copy_file(src_path, dst_file)  # 使用同一個進度計數
+                else:
+                    # 檔案不存在也記錄一下（可追蹤缺漏）
+                    if extra_log_path:
+                        with open(extra_log_path, 'a', encoding='utf-8') as lf:
+                            mac_address = get_mac_address_by_name()
+                            lf.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} MISSING {src_path}\n')
+                    extra_failures.append(f'MISSING: {src_path} -> {dst_dir}')
+            except Exception as e:
+                if extra_log_path:
+                    with open(extra_log_path, 'a', encoding='utf-8') as lf:
+                        mac_address = get_mac_address_by_name()
+                        lf.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} Failed to copy {src_path} -> {dst_dir}: {e}\n')
+                extra_failures.append(f'ERROR: {src_path} -> {dst_dir}: {e}')
+
+        # 若有任何附加檔案缺失或複製錯誤，發出警示並中止後續流程（不進行重啟）
+        if extra_failures:
+            update_button_color("red")
+            msg = "偵測到以下附加檔案未成功複製：\n" + "\n".join(extra_failures)
+            messagebox.showwarning("附加檔案複製失敗", msg)
+            unlock_button()
+            return
 
         update_button_color("green")
         S_index = selected_option.index('S')
