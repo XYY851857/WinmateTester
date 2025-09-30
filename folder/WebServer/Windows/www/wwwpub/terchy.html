@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>S8521 Web Monitor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+            background-color: #ffffff;
+        }
+
+        h1 {
+            font-size: 32px;
+            color: #333;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            margin-bottom: 0;
+        }
+
+        .SystemTime {
+            position: fixed;
+            top: 40px;
+            right: 150px;
+            font-size: 20px;
+            color: #676767;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 90%;
+            margin-bottom: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th:nth-child(3),
+        th:nth-child(4) {
+            background: linear-gradient(#ffeeee, #ff0000, #da0000);
+            color: white;
+        }
+
+        th:nth-child(5),
+        th:nth-child(6) {
+            background: linear-gradient(#eeeeff, #0000ff, #0000da);
+            color: white;
+        }
+
+        .data-row {
+            background-color: #f2f2f2;
+            color: #333;
+        }
+
+        .data-row td {
+            padding: 8px;
+        }
+
+        input[type="text"],
+        button {
+            padding: 8px;
+            margin-right: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            background-color: #aaaaaa;
+            color: white;
+            cursor: pointer;
+        }
+
+        input[type="text"]:focus,
+        button:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>S8521 Web Monitor</h1>
+    <p>&nbsp;</p>
+    <span id="systemTime" class="SystemTime"></span>
+    <script src="HackTimer.js"></script>
+    <script language="javascript">
+        function updateData() {
+            var xhr1 = new XMLHttpRequest();
+            xhr1.open("GET", "/apis/s8521/v1/profileInfo", true);  //建立連線，要求非同步響應
+            xhr1.onreadystatechange = function () {
+                if (xhr1.readyState === 4 && xhr1.status === 200) {
+                    var receivedData = JSON.parse(xhr1.responseText);
+
+                    updateDOM(receivedData);
+                } else if (xhr1.status === 404) {
+                    updateDOM(null);
+                }
+            };
+            xhr1.send();
+        }
+
+        function updateDOM(receivedData) {
+            var ControllerDateTime = document.getElementById('ControllerDateTime');
+            var State = document.getElementById('State');
+            var TempPV = document.getElementById('TempPV');
+            var TempSV = document.getElementById('TempSV');
+            var HumiPV = document.getElementById('HumiPV');
+            var HumiSV = document.getElementById('HumiSV');
+            var cSlopeTime = document.getElementById('cSlopeTime');
+            var RunningTime = document.getElementById('RunningTime');
+            var ProgramName = document.getElementById('ProgramName');
+
+            if (receivedData) {
+                ControllerDateTime.textContent = receivedData.Data.Local_DateTime;
+                State.textContent = receivedData.Data.Run_Stop == "0" ? "停機" : (receivedData.Data.Program_Fix == "0" ? "定值運轉" : "程式運轉");
+                TempPV.textContent = receivedData.Data.Pv_temperature;
+                TempSV.textContent = parseFloat(receivedData.Data.Sv_temperature).toFixed(1);
+                HumiPV.textContent = receivedData.Data.Pv_humidity;
+                HumiSV.textContent = parseFloat(receivedData.Data.Sv_humidity).toFixed(1);
+                cSlopeTime.textContent = receivedData.Data.Slope_Minutes + "M" + receivedData.Data.Slope_Seconds + "S";
+                RunningTime.textContent = receivedData.Data.Running_Hours + "H" + receivedData.Data.Running_Minutes + "M";
+                ProgramName.textContent = receivedData.Data.Program_Name;
+            } else {
+                State.textContent = "---";
+                TempPV.textContent = "---";
+                TempSV.textContent = "---";
+                HumiPV.textContent = "---";
+                HumiSV.textContent = "---";
+                cSlopeTime.textContent = "---M---S";
+                RunningTime.textContent = "---H---M";
+                ProgramName.textContent = "---";
+            }
+        }
+
+
+        window.onload = function () {
+            updateData();
+            setInterval(updateData, 1000); //每秒更新
+        };
+
+    </script>
+
+    <div>
+        <table id="GetValueContents">
+            <thead>
+                <tr>
+                    <th>控制器時間</th>
+                    <th>狀態</th>
+                    <th>溫度PV</th>
+                    <th>溫度SV</th>
+                    <th>濕度PV</th>
+                    <th>濕度SV</th>
+                    <th>斜率時間</th>
+                    <th>運轉時間</th>
+                    <th>程式名稱</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="data-row">
+                    <td id="ControllerDateTime"></td>
+                    <td id="State"></td>
+                    <td id="TempPV"></td>
+                    <td id="TempSV"></td>
+                    <td id="HumiPV"></td>
+                    <td id="HumiSV"></td>
+                    <td id="cSlopeTime"></td>
+                    <td id="RunningTime"></td>
+                    <td id="ProgramName"></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>設定溫濕度</h2>
+
+        <style>
+            form {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: space-between;
+            }
+
+            .input-group {
+                display: flex;
+                align-items: center;
+                width: 48%;
+                /* 調整每個 input group 的寬度，這裡設定為 48% */
+                margin-bottom: 10px;
+            }
+
+            label {
+                width: 50%;
+                /* 調整標題的寬度，這裡設定為 30% */
+                text-align: left;
+                /* 將文字左對齊 */
+                margin-right: 5%;
+                /* 調整標題和輸入框之間的間距 */
+            }
+
+            input {
+                width: 65%;
+                /* 調整輸入框的寬度，這裡設定為 65% */
+            }
+        </style>
+
+        <form>
+            <div class="input-group">
+                <label for="Temp">溫度(°C)　　　：</label>
+                <input id="Temp" type="text" name="temp" placeholder="Temp(°C)">
+            </div>
+
+            <div class="input-group">
+                <label for="Humi">濕度(%RH) 　　：</label>
+                <input id="Humi" type="text" name="humi" placeholder="Humi(%RH)">
+            </div>
+
+            <div class="input-group">
+                <label for="SlopeTime">斜率時間(分)　：</label>
+                <input id="SlopeTime" type="text" name="slopeTime" placeholder="斜率時間(分)">
+            </div>
+
+            <div class="input-group">
+                <label for="SlopeTime"> </label>
+            </div>
+
+            <div class="input-group">
+                <label for="RunningTime_H">運轉時間（時）：</label>
+                <input id="RunningTime_H" type="text" name="runningTime_H" placeholder="運轉時間(時)">
+            </div>
+
+            <div class="input-group">
+                <label for="RunningTime_M">運轉時間（分）：</label>
+                <input id="RunningTime_M" type="text" name="runningTime_M" placeholder="運轉時間(分)">
+            </div>
+        </form>
+
+        <br />
+        <button id="setValue">寫入</button>
+        <br />
+        <br />
+        <button id="setRun">運轉</button>
+        <button id="setStop">停止</button>
+        <br />
+        <br />
+        <div class="input-group">
+            <button id="loopWrite">loop write</button>
+            <input id="loopTime" type="text" name="loopTime" placeholder="loop write">
+        </div>
+        <button id="loopStop">loop stop</button>
+
+        <script>
+            var intervalId;
+            var LoopWrite = document.getElementById("loopWrite");
+            var LoopStop = document.getElementById("loopStop");
+            var LoopTime = document.getElementById("loopTime");
+
+            LoopWrite.hidden = false;
+            LoopStop.hidden = true;
+
+            LoopWrite.addEventListener("click", function () {
+                var loopTime = LoopTime.value;
+                if (loopTime) {
+                    intervalId = setInterval(loopWriteData, loopTime);
+
+                    LoopWrite.disabled = true;
+                    LoopWrite.hidden = true;
+                    LoopTime.disabled = true;
+                    LoopStop.disabled = false;
+                    LoopStop.hidden = false;
+                } else {
+                    alert("Please enter a valid time.");
+                }
+            });
+
+            LoopStop.addEventListener("click", function () {
+                clearInterval(intervalId);
+
+                LoopWrite.disabled = false;
+                LoopWrite.hidden = false;
+                LoopTime.disabled = false;
+                LoopStop.disabled = true;
+                LoopStop.hidden = true;
+            });
+
+            function loopWriteData() {
+
+                // 獲取當前時間
+                var currentTime = new Date();
+
+                // 獲取當前時間的秒部分
+                var seconds = currentTime.getSeconds();
+
+                // 構建要發送的資料
+                var tempInput = seconds;
+                var humiInput = document.querySelector('#Humi').value;
+                var slopeTimeInput = document.querySelector('#SlopeTime').value;
+                var runningTime_HInput = document.querySelector('#RunningTime_H').value;
+                var runningTime_MInput = document.querySelector('#RunningTime_M').value;
+
+                var requestData = {
+                    Data: {
+                        temp: tempInput || null,
+                        humi: humiInput || null,
+                        slopeTime: slopeTimeInput || null,
+                        runningTime_H: runningTime_HInput || null,
+                        runningTime_M: runningTime_MInput || null
+                    }
+                };
+                const filePath = "/apis/s8521/v1/profileInfo/update"
+                const xhr2 = new XMLHttpRequest();
+                xhr2.open('POST', filePath, true);
+                xhr2.setRequestHeader('Content-type', 'application/json');
+                xhr2.onreadystatechange = function () {
+                    if (xhr2.readyState === 4 && xhr2.status === 200) {
+                        setValueContents.textContent = xhr2.responseText;
+                    }
+                    else if (xhr2.status === 404) {
+                        setValueContents.textContent = 'Not find';
+                    }
+                };
+                xhr2.send(JSON.stringify(requestData)); // 將資料轉為 JSON 格式並發送
+            }
+        </script>
+
+        <pre id="setValueContents"></pre>
+
+        <script language="javascript">
+            const setValueButton = document.getElementById('setValue');
+            const setValueContents = document.getElementById('setValueContents');
+
+            setValueButton.addEventListener('click', () => {
+
+                // 構建要發送的資料
+                var tempInput = document.querySelector('#Temp').value;
+                var humiInput = document.querySelector('#Humi').value;
+                var slopeTimeInput = document.querySelector('#SlopeTime').value;
+                var runningTime_HInput = document.querySelector('#RunningTime_H').value;
+                var runningTime_MInput = document.querySelector('#RunningTime_M').value;
+
+                var requestData = {
+                    Data: {
+                        temp: tempInput || null,
+                        humi: humiInput || null,
+                        slopeTime: slopeTimeInput || null,
+                        runningTime_H: runningTime_HInput || null,
+                        runningTime_M: runningTime_MInput || null
+                    }
+                };
+                const filePath = "/apis/s8521/v1/profileInfo/update"
+                const xhr2 = new XMLHttpRequest();
+                xhr2.open('POST', filePath, true);
+                xhr2.setRequestHeader('Content-type', 'application/json');
+                xhr2.onreadystatechange = function () {
+                    if (xhr2.readyState === 4 && xhr2.status === 200) {
+                        setValueContents.textContent = xhr2.responseText;
+                    }
+                    else if (xhr2.status === 404) {
+                        setValueContents.textContent = 'Not find';
+                    }
+                };
+                xhr2.send(JSON.stringify(requestData)); // 將資料轉為 JSON 格式並發送
+            });
+
+            setRun.addEventListener('click', () => {
+                const filePath1 = "/apis/s8521/v1/control"
+                    + "?run=1";
+
+                const xhr3 = new XMLHttpRequest();
+                xhr3.open('POST', filePath1, true);
+                xhr3.setRequestHeader('Content-type', 'application/json');
+                xhr3.onreadystatechange = function () {
+                    if (xhr3.readyState === 4 && xhr3.status === 200) {
+                        setValueContents.textContent = xhr3.responseText;
+                    } else if (xhr3.status === 404) {
+                        setValueContents.textContent = 'Not find';
+                    }
+                };
+                xhr3.send();
+            });
+
+            setStop.addEventListener('click', () => {
+                const filePath = "/apis/s8521/v1/control"
+                    + "?run=0";
+
+                const xhr4 = new XMLHttpRequest();
+                xhr4.open('POST', filePath, true);
+                xhr4.setRequestHeader('Content-type', 'application/json');
+                xhr4.onreadystatechange = function () {
+                    if (xhr4.readyState === 4 && xhr4.status === 200) {
+                        setValueContents.textContent = xhr4.responseText;
+                    } else if (xhr4.status === 404) {
+                        setValueContents.textContent = 'Not find';
+                    }
+                };
+                xhr4.send();
+            });
+        </script>
+
+    </div>
+</body>
+
+</html>
