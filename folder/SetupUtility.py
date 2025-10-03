@@ -10,7 +10,14 @@ import threading
 import psutil
 import ctypes
 
-FW_DONE = threading.Event()
+# 是否複製 Connecter 套件：True=複製 / False=略過
+COPY_CONNECTER = True
+
+# 是否套用防火牆規則：True=建立/清理規則，False=完全略過
+APPLY_FIREWALL_RULES = True
+
+# 是否複製 WebServer 附加檔案：True=複製 / False=略過
+COPY_WEBSERVER = True
 
 
 def get_mac_address_by_name():
@@ -58,9 +65,12 @@ def copy_tree_with_progress(src_folder, dst_folder):
         (r'.\\0\\SetupUtility\\data\\WebServer\\HackTimer.js',               r'C:\\Windows\\www\\wwwpub'),
         (r'.\\0\\SetupUtility\\data\\WebServer\\terchy.html',                r'C:\\Windows\\www\\wwwpub'),
     ]
-    # 僅計入實際存在的附加檔案到總數，避免顯示進度異常
-    extra_existing = [src for src, _ in extra_copies if os.path.isfile(src)]
-    total_files += len(extra_existing)
+    # 僅當啟用時才把附加檔案計入總數
+    if COPY_WEBSERVER:
+        extra_existing = [src for src, _ in extra_copies if os.path.isfile(src)]
+        total_files += len(extra_existing)
+    else:
+        extra_existing = []
 
     copied_files = 0
 
@@ -72,8 +82,12 @@ def copy_tree_with_progress(src_folder, dst_folder):
                 dst.write(buffer)
                 buffer = src.read(1024 * 1024)
         copied_files += 1
-        progress_var.set(copied_files / total_files * 110)
-        root.update_idletasks()
+        pct = (copied_files / max(1, total_files)) * 100.0
+        val = min(pct, 100.0)
+        try:
+            root.after(0, lambda v=val: progress_var.set(v))
+        except Exception:
+            pass
 
     try:
         for dirpath, dirnames, filenames in os.walk(src_folder):
@@ -83,25 +97,35 @@ def copy_tree_with_progress(src_folder, dst_folder):
                 src_file = os.path.join(dirpath, filename)
                 dst_file = os.path.join(dst_dirpath, filename)
                 copy_file(src_file, dst_file)
-        connecter_src_folder = '.\\0\\SetupUtility\\Connecter'
-        connecter_dst_folder = 'C:\\Connecter'
-        # 複製前先刪除舊目的地
-        if os.path.exists(connecter_dst_folder):
-            shutil.rmtree(connecter_dst_folder)
-        if os.path.exists(connecter_src_folder):
+        if COPY_CONNECTER:
+            connecter_src_folder = '.\\0\\SetupUtility\\Connecter'
+            connecter_dst_folder = 'C:\\Connecter'
+            # 複製前先刪除舊目的地
+            if os.path.exists(connecter_dst_folder):
+                shutil.rmtree(connecter_dst_folder)
+            if os.path.exists(connecter_src_folder):
+                try:
+                    shutil.copytree(connecter_src_folder, connecter_dst_folder)
+                except Exception as e:
+                    with open(".\\log\\Connecter_install_log.txt", 'a') as file:
+                        mac_address = get_mac_address_by_name()
+                        file.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} Failed: {e}\n')
+                    messagebox.showinfo("錯誤", f"Connecter套件安裝錯誤，請再試一次")
+                    unlock_button()
+                    return
+                else:
+                    with open(".\\log\\Connecter_install_log.txt", 'a') as file:
+                        mac_address = get_mac_address_by_name()
+                        file.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} Success.\n')
+        else:
+            # 跳過 Connecter 複製（保留既有內容），記錄略過事件
             try:
-                shutil.copytree(connecter_src_folder, connecter_dst_folder)
-            except Exception as e:
-                with open(".\\log\\Connecter_install_log.txt", 'a') as file:
+                os.makedirs('.\\log', exist_ok=True)
+                with open('.\\log\\Connecter_install_log.txt', 'a', encoding='utf-8') as file:
                     mac_address = get_mac_address_by_name()
-                    file.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} Failed: {e}\n')
-                messagebox.showinfo("錯誤", f"Connecter套件安裝錯誤，請再試一次")
-                unlock_button()
-                return
-            else:
-                with open(".\\log\\Connecter_install_log.txt", 'a') as file:
-                    mac_address = get_mac_address_by_name()
-                    file.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} Success.\n')
+                    file.write(f"{datetime.now().strftime('%Y%m%d:%H%M%S')}: {mac_address} SKIP: COPY_CONNECTER=False\n")
+            except Exception:
+                pass
 
         def select_behavior(command, behavior_type):
             try:
@@ -111,43 +135,84 @@ def copy_tree_with_progress(src_folder, dst_folder):
                 messagebox.showinfo("錯誤", f"{behavior_type}執行錯誤，請從系統左下角手動點擊關機")
                 unlock_button()
 
-        # 新增：複製共通附加檔案到指定目的地（存在才複製；失敗寫入 log 不中斷流程）
-        try:
-            os.makedirs('.\\log', exist_ok=True)
-            extra_log_path = '.\\log\\SetupUtility_EXTRA_copy_log.txt'
-        except Exception:
-            extra_log_path = None
-
         # 嚴格模式：任何一個檔案失敗就警示並中止後續關機/重啟
         extra_failures = []
 
-        for src_path, dst_dir in extra_copies:
+        if COPY_WEBSERVER:
+            # 新增：複製共通附加檔案到指定目的地（存在才複製；失敗寫入 log 不中斷流程）
             try:
-                if os.path.isfile(src_path):
-                    os.makedirs(dst_dir, exist_ok=True)
-                    dst_file = os.path.join(dst_dir, os.path.basename(src_path))
-                    copy_file(src_path, dst_file)  # 使用同一個進度計數
-                else:
-                    # 檔案不存在也記錄一下（可追蹤缺漏）
+                os.makedirs('.\\log', exist_ok=True)
+                extra_log_path = '.\\log\\SetupUtility_EXTRA_copy_log.txt'
+            except Exception:
+                extra_log_path = None
+
+            for src_path, dst_dir in extra_copies:
+                try:
+                    if os.path.isfile(src_path):
+                        os.path.isdir(dst_dir) or os.makedirs(dst_dir, exist_ok=True)
+                        dst_file = os.path.join(dst_dir, os.path.basename(src_path))
+                        copy_file(src_path, dst_file)  # 使用同一個進度計數
+                    else:
+                        # 檔案不存在也記錄一下（可追蹤缺漏）
+                        if extra_log_path:
+                            with open(extra_log_path, 'a', encoding='utf-8') as lf:
+                                mac_address = get_mac_address_by_name()
+                                lf.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} MISSING {src_path}\n')
+                        extra_failures.append(f'MISSING: {src_path} -> {dst_dir}')
+                except Exception as e:
                     if extra_log_path:
                         with open(extra_log_path, 'a', encoding='utf-8') as lf:
                             mac_address = get_mac_address_by_name()
-                            lf.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} MISSING {src_path}\n')
-                    extra_failures.append(f'MISSING: {src_path} -> {dst_dir}')
-            except Exception as e:
-                if extra_log_path:
-                    with open(extra_log_path, 'a', encoding='utf-8') as lf:
-                        mac_address = get_mac_address_by_name()
-                        lf.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} Failed to copy {src_path} -> {dst_dir}: {e}\n')
-                extra_failures.append(f'ERROR: {src_path} -> {dst_dir}: {e}')
+                            lf.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} Failed to copy {src_path} -> {dst_dir}: {e}\n')
+                    extra_failures.append(f'ERROR: {src_path} -> {dst_dir}: {e}')
 
-        # 若有任何附加檔案缺失或複製錯誤，發出警示並中止後續流程（不進行重啟）
-        if extra_failures:
-            update_button_color("red")
-            msg = "偵測到以下附加檔案未成功複製：\n" + "\n".join(extra_failures)
-            messagebox.showwarning("附加檔案複製失敗", msg)
-            unlock_button()
-            return
+            # 若有任何附加檔案缺失或複製錯誤，發出警示並中止後續流程（不進行重啟）
+            if extra_failures:
+                update_button_color("red")
+                msg = "偵測到以下附加檔案未成功複製：\n" + "\n".join(extra_failures)
+                messagebox.showwarning("附加檔案複製失敗", msg)
+                unlock_button()
+                return
+        else:
+            # 略過 WebServer 附加檔案複製，記錄 SKIP
+            try:
+                os.makedirs('.\\log', exist_ok=True)
+                with open('.\\log\\SetupUtility_EXTRA_copy_log.txt', 'a', encoding='utf-8') as lf:
+                    mac_address = get_mac_address_by_name()
+                    lf.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} SKIP: COPY_WEBSERVER=False\n')
+            except Exception:
+                pass
+
+        # 依「開始執行」的選擇，自動放行對應的 S????.exe（C:\Storage Card\S????.exe）
+        try:
+            os.makedirs('.\\log', exist_ok=True)
+            fw_log_path = '.\\log\\SetupUtility_FW_log.txt'
+        except Exception:
+            fw_log_path = None
+
+        program_path = None
+        try:
+            S_index = selected_option.index('S')
+            s_name = selected_option[S_index:]
+            program_path = os.path.join('C:\\Storage Card', f'{s_name}.exe')
+        except Exception:
+            pass
+
+        if APPLY_FIREWALL_RULES:
+            if program_path and os.path.isfile(program_path):
+                ensure_program_fw_rules(program_path)
+            else:
+                # 無對應 S????.exe 時記錄告警（不中斷流程）
+                if fw_log_path:
+                    with open(fw_log_path, 'a', encoding='utf-8') as fwl:
+                        mac_address = get_mac_address_by_name()
+                        fwl.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} WARN: program not found for selection "{selected_option}" -> expected "{program_path}"\n')
+        else:
+            # 略過所有防火牆操作（不清舊規則、不新增），僅記錄 SKIP
+            if fw_log_path:
+                with open(fw_log_path, 'a', encoding='utf-8') as fwl:
+                    mac_address = get_mac_address_by_name()
+                    fwl.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} SKIP: APPLY_FIREWALL_RULES=False for selection "{selected_option}"\n')
 
         update_button_color("green")
         S_index = selected_option.index('S')
@@ -171,7 +236,7 @@ def copy_tree_with_progress(src_folder, dst_folder):
 
 def unlock_button():
     start_button.config(state=tk.NORMAL)
-    end_button.config(state=tk.NORMAL if FW_DONE.is_set() else tk.DISABLED)
+    end_button.config(state=tk.NORMAL)
     return
 
 
@@ -252,7 +317,7 @@ def addition_command():
                     command = line.strip()  # 移除空白與換行符
                     if command:  # 如果不是空行，執行指令
                         result = subprocess.run(['powershell', '-Command', command], capture_output=True, text=True,
-                                                check=True, shell=True)
+                                                check=True)
                         print('插件執行成功')
         except subprocess.CalledProcessError as e:
             messagebox.showinfo("錯誤", f"插件執行失敗，請重試")
@@ -261,29 +326,17 @@ def addition_command():
 
 
 def warning_font_color():
-    while True:
-        warning_label.config(fg='blue')
-        time.sleep(1)
-        warning_label.config(fg='red')
-        time.sleep(1)
+    def _tick():
+        try:
+            current = warning_label.cget('fg')
+            warning_label.config(fg='red' if current != 'red' else 'blue')
+        except Exception:
+            pass
+        finally:
+            root.after(1000, _tick)
+    root.after(0, _tick)
 
 
-def _add_fw_rule_port(port, proto="TCP", profiles="any"):
-    name = f"SetupUtility_Allow_{proto}_{port}"
-    # 先刪除可能存在的同名規則（忽略失敗）
-    del_res = subprocess.run(
-        f'netsh advfirewall firewall delete rule name={name}',
-        capture_output=True, text=True, shell=True
-    )
-    # 新增規則（針對指定埠、指定協定，套用於所有網路設定檔 profile=any）
-    cmd = (
-        f'netsh advfirewall firewall add rule name={name} '
-        f'dir=in action=allow protocol={proto} localport={port} '
-        f'profile={profiles}'
-    )
-    add_res = subprocess.run(cmd, capture_output=True, text=True, shell=True)
-    # 回傳是否成功與輸出，讓上層決定如何紀錄/顯示
-    return (add_res.returncode == 0), (add_res.stdout or ''), (add_res.stderr or '')
 
 
 def _is_admin():
@@ -306,49 +359,62 @@ def _has_fw_rule(name: str) -> bool:
         return False
 
 
-def setup_firewall_rules():
+
+def _add_fw_rule_program(program_path: str, direction: str = "in", profiles: str = "any"):
+    """
+    新增針對「程式」的防火牆規則（direction: in/out）。
+    回傳 (ok:boolean, rule_name:str, stdout:str, stderr:str)。
+    """
+    rule_name = f'SetupUtility_Allow_{os.path.basename(program_path)}_{direction}'
+    # 先刪除同名規則，確保規則內容一致
+    subprocess.run(
+        f'netsh advfirewall firewall delete rule name="{rule_name}"',
+        capture_output=True, text=True, shell=True
+    )
+    cmd = (
+        f'netsh advfirewall firewall add rule name="{rule_name}" '
+        f'dir={direction} action=allow program="{program_path}" enable=yes profile={profiles}'
+    )
+    res = subprocess.run(cmd, capture_output=True, text=True, shell=True)
+    return (res.returncode == 0), rule_name, (res.stdout or ''), (res.stderr or '')
+
+
+def ensure_program_fw_rules(program_path: str):
+    """
+    依指定程式建立入/出站放行；先查詢，若無再寫入。
+    不處理任何以埠為單位的規則（例如 502/5001）。
+    """
     try:
         os.makedirs('.\\log', exist_ok=True)
         log_path = '.\\log\\SetupUtility_FW_log.txt'
-        mac_address = get_mac_address_by_name()
-        ts = datetime.now().strftime("%Y%m%d:%H%M%S")
+    except Exception:
+        log_path = None
 
-        if not _is_admin():
-            with open(log_path, 'a', encoding='utf-8') as file:
-                file.write(f'{ts}: {mac_address} SKIP: not running as Administrator, firewall rules not applied.\n')
-            return
+    mac_address = get_mac_address_by_name()
+    ts = datetime.now().strftime("%Y%m%d:%H%M%S")
 
-        results = []
-        for port in (502, 5001):
-            for proto in ("TCP", "UDP"):
-                ok, out, err = _add_fw_rule_port(port, proto, "any")
-                name = f"SetupUtility_Allow_{proto}_{port}"
-                verified = _has_fw_rule(name) if ok else False
-                status = 'Success' if (ok and verified) else 'Failed'
-                results.append((name, status, out, err))
+    if not _is_admin():
+        if log_path:
+            with open(log_path, 'a', encoding='utf-8') as f:
+                f.write(f'{ts}: {mac_address} SKIP: not running as Administrator, program rule not applied for {program_path}\n')
+        return
 
-        with open(log_path, 'a', encoding='utf-8') as file:
-            file.write(f'{ts}: {mac_address} Applying FW rules for TCP/UDP ports 502, 5001 (profiles=any)\n')
-            for name, status, out, err in results:
-                file.write(f'  {name}: {status}\n')
-                if status != 'Success':
-                    if out.strip():
-                        file.write(f'    stdout: {out.strip()}\n')
-                    if err.strip():
-                        file.write(f'    stderr: {err.strip()}\n')
-    except Exception as e:
-        try:
-            os.makedirs('.\\log', exist_ok=True)
-            with open('.\\log\\SetupUtility_ERROR_report.txt', 'a', encoding='utf-8') as errfile:
-                errfile.write(f'Firewall setup failed: {e}\n')
-        except Exception:
-            pass
-    finally:
-        # 無論成功/失敗/早退，皆標記為已完成，讓 UI 能解鎖「結束程序」
-        try:
-            FW_DONE.set()
-        except Exception:
-            pass
+    for direction in ('in', 'out'):
+        name = f"SetupUtility_Allow_{os.path.basename(program_path)}_{direction}"
+        if _has_fw_rule(name):
+            status, out, err = 'Exists', '', ''
+        else:
+            ok, _, out, err = _add_fw_rule_program(program_path, direction, 'any')
+            status = 'Success' if ok else 'Failed'
+        if log_path:
+            with open(log_path, 'a', encoding='utf-8') as f:
+                f.write(f'{ts}: {mac_address} Program FW {name}: {status}\n')
+                if out.strip():
+                    f.write(f'    stdout: {out.strip()}\n')
+                if err.strip():
+                    f.write(f'    stderr: {err.strip()}\n')
+
+
 
 
 def create_gui():
@@ -357,8 +423,6 @@ def create_gui():
     result, detail = addition_command()
     if result is False:
         return False, detail
-    # 防火牆規則在背景執行緒設定，主執行緒繼續渲染 GUI
-    threading.Thread(target=setup_firewall_rules, daemon=True).start()
     root = tk.Tk()
     root.title("SetupUtility")
     root.attributes('-fullscreen', True)
@@ -397,16 +461,6 @@ def create_gui():
     end_button = tk.Button(button_frame, text="結束程序", command=close_app, font=font)
     end_button.pack(side='left', padx=5, expand=True, fill='x')
 
-    # 直到防火牆規則處理完成前，保持「結束程序」鎖定
-    end_button.config(state=tk.DISABLED)
-
-    def _check_fw_done():
-        if FW_DONE.is_set():
-            end_button.config(state=tk.NORMAL)
-        else:
-            root.after(200, _check_fw_done)
-
-    root.after(200, _check_fw_done)
 
     progress_frame = tk.Frame(root)
     progress_frame.pack(pady=5, padx=20, fill='x')
@@ -440,7 +494,11 @@ def create_gui():
 
 
 if __name__ == "__main__":
-    report, detail = create_gui()
-    if report is False:
-        with open('\\log\\SetupUtility_ERROR_report.txt', 'a') as errfile:
-            errfile.write(f'SetupUtility: {detail} Failed\n')
+    res = create_gui()
+    if isinstance(res, tuple) and res and res[0] is False:
+        try:
+            os.makedirs('.\\log', exist_ok=True)
+            with open('.\\log\\SetupUtility_ERROR_report.txt', 'a', encoding='utf-8') as errfile:
+                errfile.write(f'SetupUtility: {res[1]} Failed\n')
+        except Exception:
+            pass
