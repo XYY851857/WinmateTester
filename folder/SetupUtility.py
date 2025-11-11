@@ -10,6 +10,8 @@ import threading
 import psutil
 import ctypes
 
+import base64
+
 # 是否複製 Connecter 套件：True=複製 / False=略過
 COPY_CONNECTER = True
 
