@@ -74,13 +74,21 @@ def copy_tree_with_progress(src_folder, dst_folder):
 
     copied_files = 0
 
-    def copy_file(src_file, dst_file):
+    def copy_file(src_file, dst_file, verify=False):
         nonlocal copied_files
+        # 逐塊拷貝；可選擇是否進行 I/O 級驗證（檔案大小一致）
         with open(src_file, 'rb') as src, open(dst_file, 'wb') as dst:
-            buffer = src.read(1024 * 1024)
-            while buffer:
-                dst.write(buffer)
+            while True:
                 buffer = src.read(1024 * 1024)
+                if not buffer:
+                    break
+                dst.write(buffer)
+            dst.flush()
+            if verify:
+                os.fsync(dst.fileno())
+        # 僅在 verify=True 時檢查大小一致
+        if verify and (os.path.getsize(src_file) != os.path.getsize(dst_file)):
+            raise IOError(f'Copy incomplete (size mismatch): {src_file} -> {dst_file}')
         copied_files += 1
         pct = (copied_files / max(1, total_files)) * 100.0
         val = min(pct, 100.0)
@@ -96,7 +104,7 @@ def copy_tree_with_progress(src_folder, dst_folder):
             for filename in filenames:
                 src_file = os.path.join(dirpath, filename)
                 dst_file = os.path.join(dst_dirpath, filename)
-                copy_file(src_file, dst_file)
+                copy_file(src_file, dst_file, verify=False)  # 主體：關閉逐檔 I/O 驗證
         if COPY_CONNECTER:
             connecter_src_folder = '.\\0\\SetupUtility\\Connecter'
             connecter_dst_folder = 'C:\\Connecter'
@@ -135,11 +143,48 @@ def copy_tree_with_progress(src_folder, dst_folder):
                 messagebox.showinfo("錯誤", f"{behavior_type}執行錯誤，請從系統左下角手動點擊關機")
                 unlock_button()
 
+        # 主體資料夾拷貝完成後，先做完整性驗證（僅比對 src→dst 的存在與大小）
+        try:
+            os.makedirs('.\\log', exist_ok=True)
+            verify_log_path = '.\\log\\SetupUtility_COPY_verify_log.txt'
+        except Exception:
+            verify_log_path = None
+
+        verify_errors = []
+        for dirpath, _, filenames in os.walk(src_folder):
+            rel_dir = os.path.relpath(dirpath, src_folder)
+            dst_dir = os.path.join(dst_folder, rel_dir)
+            for filename in filenames:
+                s = os.path.join(dirpath, filename)
+                d = os.path.join(dst_dir, filename)
+                if not os.path.isfile(d):
+                    verify_errors.append(f'MISSING: {os.path.relpath(s, src_folder)}')
+                else:
+                    try:
+                        if os.path.getsize(s) != os.path.getsize(d):
+                            verify_errors.append(
+                                f'SIZE_MISMATCH: {os.path.relpath(s, src_folder)} ({os.path.getsize(s)} != {os.path.getsize(d)})'
+                            )
+                    except Exception as e:
+                        verify_errors.append(f'CHECK_ERROR: {os.path.relpath(s, src_folder)}: {e}')
+
+        if verify_errors:
+            if verify_log_path:
+                with open(verify_log_path, 'a', encoding='utf-8') as vf:
+                    mac = get_mac_address_by_name()
+                    ts = datetime.now().strftime("%Y%m%d:%H%M%S")
+                    for line in verify_errors:
+                        vf.write(f'{ts}: {mac} {line}\n')
+            update_button_color("red")
+            messagebox.showwarning("完整性驗證失敗", "主體資料夾複製完整性驗證未通過，已中止後續動作。\n" + "\n".join(verify_errors[:20]))
+            unlock_button()
+            return
+
         # 嚴格模式：任何一個檔案失敗就警示並中止後續關機/重啟
         extra_failures = []
 
         if COPY_WEBSERVER:
-            # 新增：複製共通附加檔案到指定目的地（存在才複製；失敗寫入 log 不中斷流程）
+            # 新增：複製共通附加檔案到指定目的地；一律嘗試拷貝，失敗寫入 log 不中斷流程
             try:
                 os.makedirs('.\\log', exist_ok=True)
                 extra_log_path = '.\\log\\SetupUtility_EXTRA_copy_log.txt'
@@ -148,17 +193,10 @@ def copy_tree_with_progress(src_folder, dst_folder):
 
             for src_path, dst_dir in extra_copies:
                 try:
-                    if os.path.isfile(src_path):
-                        os.path.isdir(dst_dir) or os.makedirs(dst_dir, exist_ok=True)
-                        dst_file = os.path.join(dst_dir, os.path.basename(src_path))
-                        copy_file(src_path, dst_file)  # 使用同一個進度計數
-                    else:
-                        # 檔案不存在也記錄一下（可追蹤缺漏）
-                        if extra_log_path:
-                            with open(extra_log_path, 'a', encoding='utf-8') as lf:
-                                mac_address = get_mac_address_by_name()
-                                lf.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} MISSING {src_path}\n')
-                        extra_failures.append(f'MISSING: {src_path} -> {dst_dir}')
+                    os.path.isdir(dst_dir) or os.makedirs(dst_dir, exist_ok=True)
+                    dst_file = os.path.join(dst_dir, os.path.basename(src_path))
+                    # 嘗試拷貝；若來源不存在或 I/O 錯誤，copy_file 會丟出例外
+                    copy_file(src_path, dst_file, verify=True)  # WebServer：逐檔 I/O 級驗證
                 except Exception as e:
                     if extra_log_path:
                         with open(extra_log_path, 'a', encoding='utf-8') as lf:
@@ -199,20 +237,35 @@ def copy_tree_with_progress(src_folder, dst_folder):
             pass
 
         if APPLY_FIREWALL_RULES:
-            if program_path and os.path.isfile(program_path):
+            if program_path:
+                # 不論檔案是否存在都寫入規則；若檔案不存在則另外記錄 WARN
                 ensure_program_fw_rules(program_path)
+                if not os.path.isfile(program_path) and fw_log_path:
+                    with open(fw_log_path, 'a', encoding='utf-8') as fwl:
+                        mac_address = get_mac_address_by_name()
+                        fwl.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} WARN: program not found for selection "{selected_option}" -> expected "{program_path}", rule still attempted\n')
             else:
-                # 無對應 S????.exe 時記錄告警（不中斷流程）
+                # 無法從選項解析出 S???? 名稱
                 if fw_log_path:
                     with open(fw_log_path, 'a', encoding='utf-8') as fwl:
                         mac_address = get_mac_address_by_name()
-                        fwl.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} WARN: program not found for selection "{selected_option}" -> expected "{program_path}"\n')
+                        fwl.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} WARN: cannot derive program name from selection "{selected_option}"\n')
+
+            # 同時處理 WebServerUDP.exe：即使檔案不存在也嘗試建立規則，並記錄 WARN
+            webserver_udp_path = r'C:\Storage Card\WebServerUDP.exe'
+            ensure_program_fw_rules(webserver_udp_path)
+            if not os.path.isfile(webserver_udp_path) and fw_log_path:
+                with open(fw_log_path, 'a', encoding='utf-8') as fwl:
+                    mac_address = get_mac_address_by_name()
+                    fwl.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} WARN: WebServerUDP.exe not found at "{webserver_udp_path}", rule still attempted\n')
         else:
-            # 略過所有防火牆操作（不清舊規則、不新增），僅記錄 SKIP
+            # 略過所有防火牆操作（不清舊規則、不新增），僅記錄 SKIP（包含 WebServerUDP）
             if fw_log_path:
                 with open(fw_log_path, 'a', encoding='utf-8') as fwl:
                     mac_address = get_mac_address_by_name()
-                    fwl.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} SKIP: APPLY_FIREWALL_RULES=False for selection "{selected_option}"\n')
+                    ts = datetime.now().strftime("%Y%m%d:%H%M%S")
+                    fwl.write(f'{ts}: {mac_address} SKIP: APPLY_FIREWALL_RULES=False for selection "{selected_option}"\n')
+                    fwl.write(f'{ts}: {mac_address} SKIP: WebServerUDP.exe not applied due to APPLY_FIREWALL_RULES=False\n')
 
         update_button_color("green")
         S_index = selected_option.index('S')
