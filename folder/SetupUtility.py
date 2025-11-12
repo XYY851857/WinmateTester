@@ -75,6 +75,50 @@ def copy_tree_with_progress(src_folder, dst_folder):
         extra_existing = []
 
     copied_files = 0
+    # --- 併行：在主包 copy 的同時進行防火牆規則寫入 ---
+    fw_thread = None
+    try:
+        os.makedirs('.\\log', exist_ok=True)
+        fw_log_path = '.\\log\\SetupUtility_FW_log.txt'
+    except Exception:
+        fw_log_path = None
+    program_path = None
+    try:
+        S_index = selected_option.index('S')
+        s_name = selected_option[S_index:]
+        program_path = os.path.join('C:\\Storage Card', f'{s_name}.exe')
+    except Exception:
+        pass
+    if APPLY_FIREWALL_RULES:
+        progs = []
+        if program_path:
+            progs.append(program_path)
+            if not os.path.isfile(program_path) and fw_log_path:
+                with open(fw_log_path, 'a', encoding='utf-8') as fwl:
+                    mac_address = get_mac_address_by_name()
+                    fwl.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} WARN: program not found for selection "{selected_option}" -> expected "{program_path}", rule still attempted\n')
+        else:
+            if fw_log_path:
+                with open(fw_log_path, 'a', encoding='utf-8') as fwl:
+                    mac_address = get_mac_address_by_name()
+                    fwl.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} WARN: cannot derive program name from selection "{selected_option}"\n')
+        webserver_udp_path = r'C:\\Storage Card\\WebServerUDP.exe'
+        progs.append(webserver_udp_path)
+        if not os.path.isfile(webserver_udp_path) and fw_log_path:
+            with open(fw_log_path, 'a', encoding='utf-8') as fwl:
+                mac_address = get_mac_address_by_name()
+                fwl.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} WARN: WebServerUDP.exe not found at "{webserver_udp_path}", rule still attempted\n')
+        # 背景執行，與主包 copy 併行
+        fw_thread = threading.Thread(target=lambda: ensure_program_fw_rules_batch(progs), daemon=True)
+        fw_thread.start()
+    else:
+        # 略過所有防火牆操作（不清舊規則、不新增），僅記錄 SKIP（包含 WebServerUDP）
+        if fw_log_path:
+            with open(fw_log_path, 'a', encoding='utf-8') as fwl:
+                mac_address = get_mac_address_by_name()
+                ts = datetime.now().strftime("%Y%m%d:%H%M%S")
+                fwl.write(f'{ts}: {mac_address} SKIP: APPLY_FIREWALL_RULES=False for selection "{selected_option}"\n')
+                fwl.write(f'{ts}: {mac_address} SKIP: WebServerUDP.exe not applied due to APPLY_FIREWALL_RULES=False\n')
 
     def copy_file(src_file, dst_file, verify=False):
         nonlocal copied_files
@@ -223,52 +267,12 @@ def copy_tree_with_progress(src_folder, dst_folder):
             except Exception:
                 pass
 
-        # 依「開始執行」的選擇，自動放行對應的 S????.exe（C:\Storage Card\S????.exe）
+        # 等待防火牆背景任務（若仍在執行），避免重開機時規則未套完
         try:
-            os.makedirs('.\\log', exist_ok=True)
-            fw_log_path = '.\\log\\SetupUtility_FW_log.txt'
-        except Exception:
-            fw_log_path = None
-
-        program_path = None
-        try:
-            S_index = selected_option.index('S')
-            s_name = selected_option[S_index:]
-            program_path = os.path.join('C:\\Storage Card', f'{s_name}.exe')
+            if fw_thread and fw_thread.is_alive():
+                fw_thread.join(timeout=15)
         except Exception:
             pass
-
-        if APPLY_FIREWALL_RULES:
-            if program_path:
-                # 不論檔案是否存在都寫入規則；若檔案不存在則另外記錄 WARN
-                ensure_program_fw_rules(program_path)
-                if not os.path.isfile(program_path) and fw_log_path:
-                    with open(fw_log_path, 'a', encoding='utf-8') as fwl:
-                        mac_address = get_mac_address_by_name()
-                        fwl.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} WARN: program not found for selection "{selected_option}" -> expected "{program_path}", rule still attempted\n')
-            else:
-                # 無法從選項解析出 S???? 名稱
-                if fw_log_path:
-                    with open(fw_log_path, 'a', encoding='utf-8') as fwl:
-                        mac_address = get_mac_address_by_name()
-                        fwl.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} WARN: cannot derive program name from selection "{selected_option}"\n')
-
-            # 同時處理 WebServerUDP.exe：即使檔案不存在也嘗試建立規則，並記錄 WARN
-            webserver_udp_path = r'C:\Storage Card\WebServerUDP.exe'
-            ensure_program_fw_rules(webserver_udp_path)
-            if not os.path.isfile(webserver_udp_path) and fw_log_path:
-                with open(fw_log_path, 'a', encoding='utf-8') as fwl:
-                    mac_address = get_mac_address_by_name()
-                    fwl.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} WARN: WebServerUDP.exe not found at "{webserver_udp_path}", rule still attempted\n')
-        else:
-            # 略過所有防火牆操作（不清舊規則、不新增），僅記錄 SKIP（包含 WebServerUDP）
-            if fw_log_path:
-                with open(fw_log_path, 'a', encoding='utf-8') as fwl:
-                    mac_address = get_mac_address_by_name()
-                    ts = datetime.now().strftime("%Y%m%d:%H%M%S")
-                    fwl.write(f'{ts}: {mac_address} SKIP: APPLY_FIREWALL_RULES=False for selection "{selected_option}"\n')
-                    fwl.write(f'{ts}: {mac_address} SKIP: WebServerUDP.exe not applied due to APPLY_FIREWALL_RULES=False\n')
-
         update_button_color("green")
         S_index = selected_option.index('S')
         select_behavior('r', '關機')
@@ -412,6 +416,92 @@ def _has_fw_rule(name: str) -> bool:
         return res.returncode == 0
     except Exception:
         return False
+
+
+# --- 併行批次建立防火牆規則用 helper ---
+def _run_hidden(args, **kwargs):
+    """Run subprocess without flashing a console window."""
+    si = subprocess.STARTUPINFO()
+    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    si.wShowWindow = 0  # SW_HIDE
+    kwargs.setdefault('startupinfo', si)
+    kwargs.setdefault('creationflags', getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    return subprocess.run(args, **kwargs)
+
+def _ps_encoded_command(script: str):
+    """Return a PowerShell -EncodedCommand argv for reliable multiline execution."""
+    encoded = base64.b64encode(script.encode('utf-16le')).decode('ascii')
+    return ['powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded]
+
+def ensure_program_fw_rules_batch(program_paths):
+    """
+    一次性（單一 PowerShell 行程）為多個程式建立入/出站放行規則。
+    將同名規則先移除再新增，以確保內容一致。
+    """
+    try:
+        os.makedirs('.\\log', exist_ok=True)
+        log_path = '.\\log\\SetupUtility_FW_log.txt'
+    except Exception:
+        log_path = None
+
+    mac_address = get_mac_address_by_name()
+    ts = datetime.now().strftime("%Y%m%d:%H%M%S")
+
+    if not _is_admin():
+        if log_path:
+            with open(log_path, 'a', encoding='utf-8') as f:
+                for p in program_paths:
+                    f.write(f'{ts}: {mac_address} SKIP: not running as Administrator, program rule not applied for {p}\n')
+        return
+
+    # 去重並維持順序
+    seen = set()
+    paths = []
+    for p in program_paths:
+        if p and p not in seen:
+            seen.add(p)
+            paths.append(p)
+
+    if not paths:
+        return
+
+    # 建立 PowerShell 批次腳本：移除舊規則、建立新規則（in/out）
+    lines = [
+        '$ErrorActionPreference = "Stop";',
+        'function Apply-ProgramRule([string]$Program) {',
+        '  $base = [System.IO.Path]::GetFileName($Program);',
+        '  foreach ($dir in @("in","out")) {',
+        '    $name = ("SetupUtility_Allow_{0}_{1}" -f $base, $dir);',
+        '    try { Remove-NetFirewallRule -DisplayName $name -ErrorAction SilentlyContinue } catch {}',
+        '    New-NetFirewallRule -DisplayName $name -Direction $dir -Action Allow -Program $Program -Enabled True -Profile Any | Out-Null',
+        '  }',
+        '}'
+    ]
+    for p in paths:
+        # 單引號內再以單引號跳脫
+        pp = p.replace("'", "''")
+        lines.append(f"Apply-ProgramRule('{pp}');")
+
+    script = '\n'.join(lines)
+    argv = _ps_encoded_command(script)
+    res = _run_hidden(argv, capture_output=True, text=True)
+
+    # 統一寫入結果（以整批為單位），並維持舊版每條規則的紀錄格式
+    ok = (res.returncode == 0)
+    for p in paths:
+        for direction in ('in', 'out'):
+            name = f"SetupUtility_Allow_{os.path.basename(p)}_{direction}"
+            status = 'Success' if ok else 'Failed'
+            if log_path:
+                with open(log_path, 'a', encoding='utf-8') as f:
+                    f.write(f'{ts}: {mac_address} Program FW {name}: {status}\n')
+    # 追加 stdout/stderr 以利除錯
+    if log_path and (res.stdout or res.stderr):
+        with open(log_path, 'a', encoding='utf-8') as f:
+            if (res.stdout or '').strip():
+                f.write(f'    stdout: {res.stdout.strip()}\n')
+            if (res.stderr or '').strip():
+                f.write(f'    stderr: {res.stderr.strip()}\n')
 
 
 
