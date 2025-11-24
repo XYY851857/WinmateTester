@@ -12,6 +12,9 @@ import ctypes
 
 import base64
 
+# 使用者中止旗標：開始執行後可由「終止安裝」按鈕設置
+abort_event = threading.Event()
+
 # 是否複製 Connecter 套件：True=複製 / False=略過
 COPY_CONNECTER = True
 
@@ -125,6 +128,8 @@ def copy_tree_with_progress(src_folder, dst_folder):
         # 逐塊拷貝；可選擇是否進行 I/O 級驗證（檔案大小一致）
         with open(src_file, 'rb') as src, open(dst_file, 'wb') as dst:
             while True:
+                if abort_event.is_set():
+                    raise Exception('USER_ABORT')
                 buffer = src.read(1024 * 1024)
                 if not buffer:
                     break
@@ -147,6 +152,8 @@ def copy_tree_with_progress(src_folder, dst_folder):
         for dirpath, dirnames, filenames in os.walk(src_folder):
             dst_dirpath = os.path.join(dst_folder, os.path.relpath(dirpath, src_folder))
             os.makedirs(dst_dirpath, exist_ok=True)
+            if abort_event.is_set():
+                raise Exception('USER_ABORT')
             for filename in filenames:
                 src_file = os.path.join(dirpath, filename)
                 dst_file = os.path.join(dst_dirpath, filename)
@@ -182,9 +189,12 @@ def copy_tree_with_progress(src_folder, dst_folder):
                 pass
 
         def select_behavior(command, behavior_type):
+            # 若使用者在「準備關機」階段按下終止，直接跳過關機
+            if abort_event.is_set():
+                return
             try:
-                subprocess.run(['powershell', '-Command', f'shutdown /{command}'], capture_output=True, text=True,
-                               check=True)
+                _run_hidden(['powershell', '-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden',
+                             '-Command', f'shutdown /{command}'], capture_output=True, text=True, check=True)
             except:
                 messagebox.showinfo("錯誤", f"{behavior_type}執行錯誤，請從系統左下角手動點擊關機")
                 unlock_button()
@@ -238,6 +248,8 @@ def copy_tree_with_progress(src_folder, dst_folder):
                 extra_log_path = None
 
             for src_path, dst_dir in extra_copies:
+                if abort_event.is_set():
+                    raise Exception('USER_ABORT')
                 try:
                     os.path.isdir(dst_dir) or os.makedirs(dst_dir, exist_ok=True)
                     dst_file = os.path.join(dst_dir, os.path.basename(src_path))
@@ -274,6 +286,11 @@ def copy_tree_with_progress(src_folder, dst_folder):
         except Exception:
             pass
         update_button_color("green")
+        if abort_event.is_set():
+            # 使用者在準備關機階段按下中止
+            unlock_button()
+            messagebox.showinfo("已終止", "已停止關機動作")
+            return
         S_index = selected_option.index('S')
         select_behavior('r', '關機')
         messagebox.showinfo("完成", f"{selected_option[S_index:]}已複製到 C:\\Storage Card")
@@ -288,15 +305,45 @@ def copy_tree_with_progress(src_folder, dst_folder):
         #     select_behavior('r', '重新啓動')
         unlock_button()
     except Exception as e:
-        update_button_color("red")
-        messagebox.showerror("錯誤", f"複製資料夾時發生錯誤: {e}")
-        unlock_button()
+        if 'USER_ABORT' in str(e):
+            update_button_color("red")
+            # 取消任何已排程的關機（若有）
+            try:
+                _run_hidden(['powershell', '-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden',
+                             '-Command', 'shutdown /a'], capture_output=True, text=True)
+            except Exception:
+                pass
+            messagebox.showinfo("已終止", "安裝已被使用者終止")
+            unlock_button()
+        else:
+            update_button_color("red")
+            messagebox.showerror("錯誤", f"複製資料夾時發生錯誤: {e}")
+            unlock_button()
 
 
 def unlock_button():
     start_button.config(state=tk.NORMAL)
     end_button.config(state=tk.NORMAL)
+    try:
+        stop_button.config(state=tk.DISABLED)
+    except Exception:
+        pass
     return
+
+
+def abort_install():
+    # 設置中止旗標
+    abort_event.set()
+    # 嘗試終止任何已排程的關機（若關機已經被觸發）
+    try:
+        _run_hidden(['powershell', '-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden',
+                     '-Command', 'shutdown /a'], capture_output=True, text=True)
+    except Exception:
+        pass
+    try:
+        stop_button.config(state=tk.DISABLED)
+    except Exception:
+        pass
 
 
 def lock_button():
@@ -313,6 +360,11 @@ def update_button_color(color):
 
 def start_copy(paths_dict):
     lock_button()
+    abort_event.clear()
+    try:
+        stop_button.config(state=tk.NORMAL)
+    except Exception:
+        pass
     try:
         global selected_option
         selected_option = listbox.get(listbox.curselection())
@@ -564,7 +616,7 @@ def ensure_program_fw_rules(program_path: str):
 
 def create_gui():
     global root, progress_var, combo, start_button, end_button, entry, listbox, launch_photo_button
-    global warning_label
+    global warning_label, stop_button
     result, detail = addition_command()
     if result is False:
         return False, detail
@@ -606,6 +658,11 @@ def create_gui():
     end_button = tk.Button(button_frame, text="結束程序", command=close_app, font=font)
     end_button.pack(side='left', padx=5, expand=True, fill='x')
 
+    # 停止安裝按鈕（起初禁用；按下開始後才啟用）
+    stop_frame = tk.Frame(root)
+    stop_frame.pack(pady=5, padx=20, fill='x')
+    stop_button = tk.Button(stop_frame, text="終止安裝", command=abort_install, font=font, state=tk.DISABLED)
+    stop_button.pack(side='right', padx=5, expand=True, fill='x')
 
     progress_frame = tk.Frame(root)
     progress_frame.pack(pady=5, padx=20, fill='x')
