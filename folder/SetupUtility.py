@@ -342,7 +342,7 @@ def abort_install():
         pass
     # 使用者要求：中止時立即複製 AutoRun.vbs 到 C:\Storage Card1\
     src_vbs = '.\\0\\SetupUtility\\data\\AutoRun.vbs'
-    dst_dir = 'C:\\Storage Card1'
+    dst_dir = 'C:\\Storage Card'
     dst_path = os.path.join(dst_dir, 'AutoRun.vbs')
     try:
         os.makedirs('.\\log', exist_ok=True)
