@@ -340,6 +340,27 @@ def abort_install():
                      '-Command', 'shutdown /a'], capture_output=True, text=True)
     except Exception:
         pass
+    # 使用者要求：中止時立即複製 AutoRun.vbs 到 C:\Storage Card1\
+    src_vbs = '.\\0\\SetupUtility\\data\\AutoRun.vbs'
+    dst_dir = 'C:\\Storage Card1'
+    dst_path = os.path.join(dst_dir, 'AutoRun.vbs')
+    try:
+        os.makedirs('.\\log', exist_ok=True)
+        abort_log = '.\\log\\SetupUtility_ABORT_log.txt'
+    except Exception:
+        abort_log = None
+    try:
+        os.makedirs(dst_dir, exist_ok=True)
+        shutil.copy2(src_vbs, dst_path)
+        if abort_log:
+            with open(abort_log, 'a', encoding='utf-8') as lf:
+                mac_address = get_mac_address_by_name()
+                lf.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} Copied AutoRun.vbs -> {dst_path}\n')
+    except Exception as e:
+        if abort_log:
+            with open(abort_log, 'a', encoding='utf-8') as lf:
+                mac_address = get_mac_address_by_name()
+                lf.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} ERROR copying AutoRun.vbs: {e}\n')
     try:
         stop_button.config(state=tk.DISABLED)
     except Exception:
