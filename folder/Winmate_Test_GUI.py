@@ -6,6 +6,7 @@ from tkinter import scrolledtext, font, messagebox
 import subprocess
 import threading
 import psutil
+import json
 
 # --------------------------------------------------
 # 「漸變」與「呼吸」的輔助機制
@@ -141,7 +142,6 @@ def do_simple_fade(button, target_color, steps, interval, on_complete=None):
 # --------------------------------------------------
 # 主要測試程式邏輯
 # --------------------------------------------------
-success_check = False
 
 # 四個要檢查的執行檔路徑
 EXES = {
@@ -152,6 +152,76 @@ EXES = {
 }
 
 TIMEOUT_SECONDS = 90
+
+# --------------------------------------------------
+# JSON log 記錄相關
+# --------------------------------------------------
+LOG_DIR = ".\\log"
+
+def ensure_log_dir():
+    """確保 log 資料夾存在"""
+    if LOG_DIR and not os.path.exists(LOG_DIR):
+        os.makedirs(LOG_DIR, exist_ok=True)
+
+def get_log_path():
+    """依照當天日期決定 log 檔名，例如: .\\log\\Winmate_Test_log_20251125.json"""
+    ensure_log_dir()
+    date_str = datetime.now().strftime("%Y%m%d")
+    return os.path.join(LOG_DIR, f"Winmate_Test_log_{date_str}.json")
+
+def load_log_data():
+    """讀取 JSON 紀錄，若檔案不存在或格式錯誤則回傳空 dict"""
+    path = get_log_path()
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        # 檔案壞掉或內容非 JSON，就重新開始
+        return {}
+
+def save_log_data(data):
+    """將紀錄寫回 JSON 檔"""
+    path = get_log_path()
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+
+def update_test_log(test_name, is_ok):
+    """
+    更新單一測試項目的結果。
+    規則：
+    - 測試通過時寫入 "OK"。
+    - 測試失敗時寫入 "NG"。
+    - 若該項目已經是 "OK"，之後就算 NG 也不會覆寫掉 OK。
+    JSON 結構（單一檔案，不再內含日期層）：
+    {
+        "XX:XX:XX:XX:XX": {
+            "BT": "OK",
+            "RJ-45/Wi-Fi": "NG",
+            "USB": "OK",
+            "RS-485": "NG"
+        },
+        "YY:YY:YY:YY:YY": {
+            "BT": "NG"
+        }
+    }
+    """
+    mac_address = get_mac_address_by_name()
+
+    data = load_log_data()
+    if mac_address not in data:
+        data[mac_address] = {}
+
+    current = data[mac_address].get(test_name)
+
+    # 若已經是 OK，就不再覆寫（保持 OK 優先權）
+    if current == "OK":
+        return
+
+    # 依照 is_ok 決定要寫入 OK 或 NG
+    data[mac_address][test_name] = "OK" if is_ok else "NG"
+    save_log_data(data)
 
 def get_mac_address_by_name():
     for interface, addrs in psutil.net_if_addrs().items():
@@ -224,8 +294,12 @@ def bt():
 
     if 'PASS' in (output or ''):
         fade_to_color(BT_subprocess_exe_button, 'green')
+        is_ok = True
     else:
         fade_to_color(BT_subprocess_exe_button, 'red')
+        is_ok = False
+
+    update_test_log("BT", is_ok)
 
     BT_subprocess_exe_button.config(state=tk.NORMAL)
     return display_result(output)
@@ -249,15 +323,19 @@ def ping():
     # 假設要檢查 PASS == 4
     if output and output.count("PASS") == 4:
         fade_to_color(PingTest_subprocess_exe_button, 'green')
+        is_ok = True
     else:
         # 當部分介面失敗時輸出是 "Failed" ?
         # 顯示哪個介面 Failed
-        for i in name_list:
+        for i in name_list[:]:
             if i in (output or ''):
                 name_list.remove(i)
         out_str = f'RJ45/WiFi: {", ".join(name_list)} Failed'
         fade_to_color(PingTest_subprocess_exe_button, 'red')
         output += "\n" + out_str
+        is_ok = False
+
+    update_test_log("RJ-45/Wi-Fi", is_ok)
 
     PingTest_subprocess_exe_button.config(state=tk.NORMAL)
     return display_result(output)
@@ -279,8 +357,12 @@ def wr():
 
     if output and output.count("PASS") == 2:
         fade_to_color(WR_subprocess_exe_button, 'green')
+        is_ok = True
     else:
         fade_to_color(WR_subprocess_exe_button, 'red')
+        is_ok = False
+
+    update_test_log("USB", is_ok)
 
     if os.path.exists('WR_report.txt'):
         os.remove('WR_report.txt')
@@ -305,9 +387,13 @@ def rs485():
     print(output)
     if 'PASS' in (output or ''):
         fade_to_color(RS485_subprocess_exe_button, 'green')
+        is_ok = True
     else:
         display_result('RS485: Failed')
         fade_to_color(RS485_subprocess_exe_button, 'red')
+        is_ok = False
+
+    update_test_log("RS-485", is_ok)
 
     if os.path.exists('485_report.txt'):
         os.remove('485_report.txt')
@@ -392,7 +478,6 @@ def check_button_thread():
     threading.Thread(target=check_button).start()
 
 def check_button():
-    global success_check
     while True:
         button_list = [
             BT_subprocess_exe_button,
@@ -409,13 +494,7 @@ def check_button():
         if all(button.cget("state") == "normal" for button in button_list):
             start_button.config(state=tk.NORMAL)
 
-        # 若所有按鈕都是綠燈(#00ff00)且還沒寫入檔案，就寫一筆 success log
-        if all(button.cget("bg") == "#00ff00" for button in button_list) and not success_check:
-            with open(".\\log\\Winmate_Test_log.txt", 'a', encoding='utf-8') as file:
-                mac_address = get_mac_address_by_name()
-                file.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} Success.\n')
-            success_check = True
-
+        # (移除 success_check 及舊的 txt log 寫入)
         time.sleep(1)
 
 def close_window():
