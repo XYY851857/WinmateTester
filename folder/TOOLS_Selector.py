@@ -51,7 +51,8 @@ def run_generic_tool(name: str):
 
     candidates.sort(reverse=True)
     exe_path = candidates[0][1]
-    subprocess.run(f'"{exe_path}"', shell=True)
+    # 使用 exe 所在的資料夾作為工作目錄
+    subprocess.run(f'"{exe_path}"', shell=True, cwd=os.path.dirname(exe_path))
 
 
 def show_selector():
@@ -77,24 +78,65 @@ def show_selector():
         "relief": "raised",
         "bd": 3,
     }
-    frame = tk.Frame(root, bg="#ffffff")
-    frame.pack(fill="both", expand=True, padx=40, pady=40)
+
+    # 建立主框架
+    main_frame = tk.Frame(root, bg="#ffffff")
+    main_frame.pack(fill="both", expand=True)
+
+    # 建立 Canvas 與 Scrollbar 的容器
+    canvas_container = tk.Frame(main_frame, bg="#ffffff")
+    canvas_container.pack(side="top", fill="both", expand=True, padx=40, pady=(40, 10))
+
+    canvas = tk.Canvas(canvas_container, bg="#ffffff", highlightthickness=0)
+    scrollbar = tk.Scrollbar(canvas_container, orient="vertical", command=canvas.yview)
+    
+    scrollable_frame = tk.Frame(canvas, bg="#ffffff")
+
+    # 當 scrollable_frame 大小改變時，更新 scrollregion
+    scrollable_frame.bind(
+        "<Configure>",
+        lambda e: canvas.configure(
+            scrollregion=canvas.bbox("all")
+        )
+    )
+
+    # 在 Canvas 中建立視窗來放置 scrollable_frame
+    window_id = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+
+    # 當 Canvas 大小改變時，調整 scrollable_frame 的寬度以符合 Canvas
+    def on_canvas_configure(event):
+        canvas.itemconfig(window_id, width=event.width)
+    
+    canvas.bind("<Configure>", on_canvas_configure)
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+
+    # 綁定滑鼠滾輪
+    def _on_mousewheel(event):
+        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+    
+    canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
     # 動態偵測資料夾生成按鈕（完全依據實際存在的子資料夾）
     folders: List[str] = sorted([d for d in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, d))])
 
     for folder_name in folders:
-        tk.Button(frame,
+        tk.Button(scrollable_frame,
                   text=folder_name,
                   command=lambda v=folder_name: do_select(v),
-                  **btn_style).pack(side="top", fill="both", expand=True, pady=15)
+                  **btn_style).pack(side="top", fill="x", pady=15)
 
-    # 新增離開按鈕
-    exit_btn = tk.Button(frame, text="離開", command=do_exit,
+    # 離開按鈕固定在底部
+    bottom_frame = tk.Frame(main_frame, bg="#ffffff")
+    bottom_frame.pack(side="bottom", fill="x", padx=100, pady=30)
+
+    exit_btn = tk.Button(bottom_frame, text="離開", command=do_exit,
                         font=("Arial", 32, "bold"),
                         bg="#e57373", activebackground="#ffcdd2",
                         relief="raised", bd=4, fg="#ffffff", height=1)
-    exit_btn.pack(side="bottom", fill="x", padx=100, pady=30)
+    exit_btn.pack(fill="x")
 
     root.mainloop()
     result = selection.get()
