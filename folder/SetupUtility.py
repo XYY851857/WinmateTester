@@ -379,6 +379,70 @@ def update_button_color(color):
     unlock_button()
 
 
+def install_connecter_process():
+    src = r'.\0\SetupUtility\data\Connecter'
+    dst = r'C:\Connecter'
+
+    lock_button()
+    abort_event.clear()
+    try:
+        stop_button.config(state=tk.NORMAL)
+    except:
+        pass
+
+    try:
+        if os.path.exists(dst):
+            shutil.rmtree(dst)
+
+        total_files = sum([len(files) for r, d, files in os.walk(src)])
+        copied_files = 0
+
+        os.makedirs(dst, exist_ok=True)
+
+        for dirpath, dirnames, filenames in os.walk(src):
+            rel_dir = os.path.relpath(dirpath, src)
+            dst_dir = os.path.join(dst, rel_dir)
+            os.makedirs(dst_dir, exist_ok=True)
+
+            for filename in filenames:
+                if abort_event.is_set():
+                    raise Exception('USER_ABORT')
+
+                src_file = os.path.join(dirpath, filename)
+                dst_file = os.path.join(dst_dir, filename)
+                shutil.copy2(src_file, dst_file)
+
+                copied_files += 1
+                pct = (copied_files / max(1, total_files)) * 100.0
+                try:
+                    root.after(0, lambda v=pct: progress_var.set(v))
+                except:
+                    pass
+
+        update_button_color("green")
+
+        # Prompt
+        # askokcancel returns True for OK, False for Cancel
+        ans = messagebox.askokcancel("完成", "安裝完成是否啟動Connecter_Launcher")
+        if ans:  # OK -> Execute and Close
+            exe_path = r'C:\Connecter\Connecter_Launcher.exe'
+            if os.path.exists(exe_path):
+                # Use Popen to run independently
+                subprocess.Popen(exe_path, cwd=os.path.dirname(exe_path))
+            else:
+                messagebox.showerror("錯誤", f"找不到 {exe_path}")
+            close_app()
+        else:  # Cancel -> Unlock
+            unlock_button()
+
+    except Exception as e:
+        if 'USER_ABORT' in str(e):
+            messagebox.showinfo("已終止", "安裝已被使用者終止")
+        else:
+            messagebox.showerror("錯誤", f"安裝失敗: {e}")
+        unlock_button()
+
+
 def start_copy(paths_dict):
     lock_button()
     abort_event.clear()
@@ -411,6 +475,8 @@ def start_copy(paths_dict):
                 shutil.rmtree(connecter_dst_folder)
             except Exception as e:
                 messagebox.showinfo("錯誤", f"C:\\Connecter 刪除失敗：{e}")
+    elif selected_option == "安裝Connecter":
+        threading.Thread(target=install_connecter_process).start()
     else:
         src_folder = paths_dict.get(selected_option)
         if src_folder:
@@ -647,9 +713,18 @@ def create_gui():
     font = ('Arial', 20)
 
     folder_names, paths = read_paths_from_file(".\\0\\SetupUtility\\data\\path.txt")
+
+    # Check for Connecter folder
+    connecter_src = r'.\0\SetupUtility\data\\Connecter'
+    has_connecter = os.path.exists(connecter_src)
+
     formatted_names = [f'清除Card1, Card2,  安裝{name}' for name in folder_names]
+    paths_dict = dict(zip(formatted_names, paths)) # Map normal items
+
     formatted_names.append("清除Card1, Card2")
-    paths_dict = dict(zip(formatted_names[:-1], paths))
+    if has_connecter:
+        formatted_names.append("安裝Connecter")
+
     label = tk.Label(root, text="請選擇執行項目:", font=font)
     label.pack(pady=10)
 
@@ -698,20 +773,6 @@ def create_gui():
     warning_label = tk.Label(warning_frame, text='執行完成會自動重新啓動\n請勿直接斷電', font=font)
     warning_label.pack()
     threading.Thread(target=warning_font_color).start()
-
-    # checkbox_frame = tk.Frame(root)
-    # checkbox_frame.pack(pady=20, padx=20, fill='x')
-    # checkbox_frame.columnconfigure((0, 1, 2), weight=1)
-
-    # selected_var = tk.IntVar(value=1)
-    # radio1_shutdown = tk.Radiobutton(checkbox_frame, text='關機', font=font, variable=selected_var, value=1)
-    # radio1_shutdown.grid(row=0, column=0, sticky='ew', padx=10)
-    #
-    # radio2_logout = tk.Radiobutton(checkbox_frame, text='登出', font=font, variable=selected_var, value=2)
-    # radio2_logout.grid(row=0, column=1, sticky='ew', padx=10)
-    #
-    # radio3_restart = tk.Radiobutton(checkbox_frame, text='重新啓動', font=font, variable=selected_var, value=3)
-    # radio3_restart.grid(row=0, column=2, sticky='ew', padx=10)
 
     root.mainloop()
 
