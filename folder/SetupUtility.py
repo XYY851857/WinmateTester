@@ -21,8 +21,12 @@ COPY_CONNECTER = True
 # 是否套用防火牆規則：True=建立/清理規則，False=完全略過
 APPLY_FIREWALL_RULES = True
 
+
 # 是否複製 WebServer 附加檔案：True=複製 / False=略過
 COPY_WEBSERVER = True
+
+# 警示文字是否啟用紅藍閃爍效果
+warning_blink_enabled = True
 
 
 def get_mac_address_by_name():
@@ -380,6 +384,7 @@ def update_button_color(color):
 
 
 def install_connecter_process():
+    global warning_blink_enabled
     src = r'.\0\SetupUtility\data\Connecter'
     dst = r'C:\Connecter'
 
@@ -421,23 +426,45 @@ def install_connecter_process():
 
         update_button_color("green")
 
+        # 安裝完成後先更新選項（會依 C:\\Connecter 是否存在決定是否顯示「解除安裝Connecter」）
+        try:
+            root.after(0, update_connecter_options)
+        except Exception:
+            pass
+
         # Prompt
         # askokcancel returns True for OK, False for Cancel
         ans = messagebox.askokcancel("完成", "安裝完成是否啟動Connecter_Launcher")
-        if ans:  # OK -> Execute and Close
+        if ans:  # OK -> Execute and wait for Connecter_Launcher to close, then關閉本程式
             exe_path = r'C:\Connecter\Connecter_Launcher.exe'
             if os.path.exists(exe_path):
-                # Use Popen to run independently
-                subprocess.Popen(exe_path, cwd=os.path.dirname(exe_path))
+                # 啟動 Connecter_Launcher 前先暫停紅藍閃爍，以降低資源佔用
+                warning_blink_enabled = False
+                proc = subprocess.Popen(exe_path, cwd=os.path.dirname(exe_path))
+
+                def _wait_launcher_and_close():
+                    try:
+                        if proc.poll() is None:
+                            # 還沒關，1 秒後再檢查
+                            root.after(1000, _wait_launcher_and_close)
+                        else:
+                            # Connecter_Launcher 已經關閉，關閉本程式
+                            close_app()
+                    except Exception:
+                        # 若檢查過程中有任何問題，保險起見直接關閉本程式
+                        close_app()
+
+                # 1 秒後開始輪詢 Connecter_Launcher 狀態
+                try:
+                    root.after(1000, _wait_launcher_and_close)
+                except Exception:
+                    # 如果 GUI 已經被關掉，就直接嘗試關閉程式
+                    close_app()
             else:
                 messagebox.showerror("錯誤", f"找不到 {exe_path}")
-            close_app()
+                unlock_button()
         else:  # Cancel -> Unlock
             unlock_button()
-            try:
-                root.after(0, update_connecter_options)
-            except Exception:
-                pass
 
     except Exception as e:
         if 'USER_ABORT' in str(e):
@@ -598,13 +625,18 @@ def addition_command():
 
 def warning_font_color():
     def _tick():
+        global warning_blink_enabled
+        if not warning_blink_enabled:
+            # 停用時不再更新與排程，降低資源佔用
+            return
         try:
             current = warning_label.cget('fg')
             warning_label.config(fg='red' if current != 'red' else 'blue')
         except Exception:
             pass
         finally:
-            root.after(1000, _tick)
+            if warning_blink_enabled:
+                root.after(1000, _tick)
     root.after(0, _tick)
 
 
@@ -848,7 +880,7 @@ def create_gui():
 
     warning_label = tk.Label(warning_frame, text='執行完成會自動重新啓動\n請勿直接斷電', font=font)
     warning_label.pack()
-    threading.Thread(target=warning_font_color).start()
+    warning_font_color()
 
     root.mainloop()
 
