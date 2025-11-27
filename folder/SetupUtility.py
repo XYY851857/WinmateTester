@@ -435,7 +435,7 @@ def install_connecter_process():
         # Prompt
         # askokcancel returns True for OK, False for Cancel
         ans = messagebox.askokcancel("完成", "安裝完成是否啟動Connecter_Launcher")
-        if ans:  # OK -> Execute and wait for Connecter_Launcher to close, then關閉本程式
+        if ans:  # OK -> Execute and wait for Connecter_Launcher to close, then恢復紅藍閃爍
             exe_path = r'C:\Connecter\Connecter_Launcher.exe'
             if os.path.exists(exe_path):
                 # 啟動 Connecter_Launcher 前先暫停紅藍閃爍，以降低資源佔用
@@ -443,23 +443,36 @@ def install_connecter_process():
                 proc = subprocess.Popen(exe_path, cwd=os.path.dirname(exe_path))
 
                 def _wait_launcher_and_close():
+                    global warning_blink_enabled
                     try:
                         if proc.poll() is None:
                             # 還沒關，1 秒後再檢查
                             root.after(1000, _wait_launcher_and_close)
                         else:
-                            # Connecter_Launcher 已經關閉，關閉本程式
-                            close_app()
+                            # Connecter_Launcher 已經關閉，恢復紅藍閃爍
+                            warning_blink_enabled = True
+                            try:
+                                warning_font_color()
+                            except Exception:
+                                pass
                     except Exception:
-                        # 若檢查過程中有任何問題，保險起見直接關閉本程式
-                        close_app()
+                        # 若檢查過程中有任何問題，仍嘗試恢復紅藍閃爍
+                        warning_blink_enabled = True
+                        try:
+                            warning_font_color()
+                        except Exception:
+                            pass
 
                 # 1 秒後開始輪詢 Connecter_Launcher 狀態
                 try:
                     root.after(1000, _wait_launcher_and_close)
                 except Exception:
-                    # 如果 GUI 已經被關掉，就直接嘗試關閉程式
-                    close_app()
+                    # 如果 GUI 已經被關掉，就直接嘗試恢復紅藍閃爍
+                    warning_blink_enabled = True
+                    try:
+                        warning_font_color()
+                    except Exception:
+                        pass
             else:
                 messagebox.showerror("錯誤", f"找不到 {exe_path}")
                 unlock_button()
