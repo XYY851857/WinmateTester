@@ -434,6 +434,10 @@ def install_connecter_process():
             close_app()
         else:  # Cancel -> Unlock
             unlock_button()
+            try:
+                root.after(0, update_connecter_options)
+            except Exception:
+                pass
 
     except Exception as e:
         if 'USER_ABORT' in str(e):
@@ -441,6 +445,10 @@ def install_connecter_process():
         else:
             messagebox.showerror("錯誤", f"安裝失敗: {e}")
         unlock_button()
+        try:
+            root.after(0, update_connecter_options)
+        except Exception:
+            pass
 
 
 # 新增：Connecter 解除安裝流程
@@ -462,11 +470,44 @@ def uninstall_connecter_process():
         else:
             update_button_color("red")
             messagebox.showinfo("提示", "找不到 C:\\Connecter，可能已經解除安裝")
+        try:
+            root.after(0, update_connecter_options)
+        except Exception:
+            pass
     except Exception as e:
         update_button_color("red")
         messagebox.showerror("錯誤", f"解除安裝失敗: {e}")
     finally:
         unlock_button()
+
+
+# 新增：根據實際路徑狀態更新 Listbox 選項
+def update_connecter_options():
+    """
+    根據實際路徑狀態更新 Listbox 選項：
+    - 有來源資料夾 .\\0\\SetupUtility\\data\\Connecter 時顯示「安裝Connecter」
+    - 有 C:\\Connecter 目錄時顯示「解除安裝Connecter」
+    """
+    try:
+        items = listbox.get(0, tk.END)
+    except Exception:
+        return
+
+    # 先移除舊的 Connecter 相關選項
+    base_items = [it for it in items if it not in ("安裝Connecter", "解除安裝Connecter")]
+
+    connecter_src = r'.\0\SetupUtility\data\\Connecter'
+    has_connecter = os.path.exists(connecter_src)
+    connecter_installed = os.path.exists(r'C:\Connecter')
+
+    if has_connecter:
+        base_items.append("安裝Connecter")
+    if connecter_installed:
+        base_items.append("解除安裝Connecter")
+
+    listbox.delete(0, tk.END)
+    for it in base_items:
+        listbox.insert(tk.END, it)
 
 
 def start_copy(paths_dict):
@@ -501,6 +542,10 @@ def start_copy(paths_dict):
                 shutil.rmtree(connecter_dst_folder)
             except Exception as e:
                 messagebox.showinfo("錯誤", f"C:\\Connecter 刪除失敗：{e}")
+        try:
+            update_connecter_options()
+        except Exception:
+            pass
     elif selected_option == "安裝Connecter":
         threading.Thread(target=install_connecter_process).start()
     elif selected_option == "解除安裝Connecter":
