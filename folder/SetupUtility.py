@@ -443,6 +443,32 @@ def install_connecter_process():
         unlock_button()
 
 
+# 新增：Connecter 解除安裝流程
+def uninstall_connecter_process():
+    dst = r'C:\Connecter'
+
+    lock_button()
+    abort_event.clear()
+    try:
+        stop_button.config(state=tk.NORMAL)
+    except Exception:
+        pass
+
+    try:
+        if os.path.exists(dst):
+            shutil.rmtree(dst)
+            update_button_color("green")
+            messagebox.showinfo("完成", "Connecter 已解除安裝")
+        else:
+            update_button_color("red")
+            messagebox.showinfo("提示", "找不到 C:\\Connecter，可能已經解除安裝")
+    except Exception as e:
+        update_button_color("red")
+        messagebox.showerror("錯誤", f"解除安裝失敗: {e}")
+    finally:
+        unlock_button()
+
+
 def start_copy(paths_dict):
     lock_button()
     abort_event.clear()
@@ -477,6 +503,8 @@ def start_copy(paths_dict):
                 messagebox.showinfo("錯誤", f"C:\\Connecter 刪除失敗：{e}")
     elif selected_option == "安裝Connecter":
         threading.Thread(target=install_connecter_process).start()
+    elif selected_option == "解除安裝Connecter":
+        threading.Thread(target=uninstall_connecter_process).start()
     else:
         src_folder = paths_dict.get(selected_option)
         if src_folder:
@@ -717,13 +745,16 @@ def create_gui():
     # Check for Connecter folder
     connecter_src = r'.\0\SetupUtility\data\\Connecter'
     has_connecter = os.path.exists(connecter_src)
+    connecter_installed = os.path.exists(r'C:\Connecter')
 
     formatted_names = [f'清除Card1, Card2,  安裝{name}' for name in folder_names]
-    paths_dict = dict(zip(formatted_names, paths)) # Map normal items
+    paths_dict = dict(zip(formatted_names, paths))  # Map normal items
 
     formatted_names.append("清除Card1, Card2")
     if has_connecter:
         formatted_names.append("安裝Connecter")
+    if connecter_installed:
+        formatted_names.append("解除安裝Connecter")
 
     label = tk.Label(root, text="請選擇執行項目:", font=font)
     label.pack(pady=10)
