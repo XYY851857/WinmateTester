@@ -440,6 +440,12 @@ def install_connecter_process():
             if os.path.exists(exe_path):
                 # 啟動 Connecter_Launcher 前先暫停紅藍閃爍，以降低資源佔用
                 warning_blink_enabled = False
+                # Connecter_Launcher 開啟期間，停用「開始執行」與「結束程序」按鈕
+                try:
+                    start_button.config(state=tk.DISABLED)
+                    end_button.config(state=tk.DISABLED)
+                except Exception:
+                    pass
                 proc = subprocess.Popen(exe_path, cwd=os.path.dirname(exe_path))
 
                 def _wait_launcher_and_close():
@@ -449,17 +455,25 @@ def install_connecter_process():
                             # 還沒關，1 秒後再檢查
                             root.after(1000, _wait_launcher_and_close)
                         else:
-                            # Connecter_Launcher 已經關閉，恢復紅藍閃爍
+                            # Connecter_Launcher 已經關閉，恢復紅藍閃爍並重新啟用按鈕
                             warning_blink_enabled = True
                             try:
                                 warning_font_color()
                             except Exception:
                                 pass
+                            try:
+                                unlock_button()
+                            except Exception:
+                                pass
                     except Exception:
-                        # 若檢查過程中有任何問題，仍嘗試恢復紅藍閃爍
+                        # 若檢查過程中有任何問題，仍嘗試恢復紅藍閃爍與按鈕狀態
                         warning_blink_enabled = True
                         try:
                             warning_font_color()
+                        except Exception:
+                            pass
+                        try:
+                            unlock_button()
                         except Exception:
                             pass
 
