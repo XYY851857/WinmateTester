@@ -913,6 +913,7 @@ def create_gui():
 
 
 if __name__ == "__main__":
+    subprocess.run(['powershell', '-Command', 'Stop-Process -Name "WebServerUDP" -Force'], capture_output=True, text=True, check=True)
     res = create_gui()
     if isinstance(res, tuple) and res and res[0] is False:
         try:
