@@ -913,12 +913,15 @@ def create_gui():
 
 
 if __name__ == "__main__":
-    subprocess.run(['powershell', '-Command', 'Stop-Process -Name "WebServerUDP" -Force'], capture_output=True, text=True, check=True)
+    try:
+        subprocess.run(['powershell', '-Command', 'Stop-Process -Name "WebServerUDP" -Force'], capture_output=True, text=True, check=True)
+    except:
+        pass
     res = create_gui()
     if isinstance(res, tuple) and res and res[0] is False:
         try:
             os.makedirs('.\\log', exist_ok=True)
             with open('.\\log\\SetupUtility_ERROR_report.txt', 'a', encoding='utf-8') as errfile:
                 errfile.write(f'SetupUtility: {res[1]} Failed\n')
-        except Exception:
+        except:
             pass
