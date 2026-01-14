@@ -13,7 +13,7 @@ except Exception:
 # 執行 Relay.bat：在新的 cmd 視窗中獨立執行
 bat_path = r'D:\S7215\Relay.bat'
 subprocess.Popen(
-    ['cmd.exe', '/c', 'start', '""','/min', bat_path],
+    ['cmd.exe', '/c', 'start', '""', bat_path],
     shell=False,
     creationflags=subprocess.CREATE_NEW_CONSOLE,
 )
