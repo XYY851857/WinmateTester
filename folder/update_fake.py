@@ -10,9 +10,10 @@ try:
 except Exception:
     pass  # 忽略非 Windows
 
-# 執行 Relay.bat，最小化新開啟的視窗
-si = subprocess.STARTUPINFO()
-si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-si.wShowWindow = 6  # SW_MINIMIZE
-
-subprocess.Popen([r'D:\S8521\Relay.bat'], shell=True, startupinfo=si)
+# 執行 Relay.bat：在新的 cmd 視窗中獨立執行
+bat_path = r'D:\S7215\Relay.bat'
+subprocess.Popen(
+    ['cmd.exe', '/c', 'start', '""','/min', bat_path],
+    shell=False,
+    creationflags=subprocess.CREATE_NEW_CONSOLE,
+)
