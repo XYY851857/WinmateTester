@@ -87,10 +87,10 @@ def main():
     # List of files to copy: (Source Path, Destination Directory)
     # Source paths are relative to the script execution directory
     files_to_copy = [
-        (r'.\0\SetupUtility\data\WebServer\Newtonsoft.Json.Compact.dll', r'C:\Storage Card'),
-        (r'.\0\SetupUtility\data\WebServer\nModbusCE.dll',              r'C:\Storage Card'),
-        (r'.\0\SetupUtility\data\WebServer\WebserverCe.dll',            r'C:\Storage Card'),
-        (r'.\0\SetupUtility\data\WebServer\WebServerUDP.exe',           r'C:\Storage Card')
+        (r'.\WebServer\Newtonsoft.Json.Compact.dll', r'C:\Storage Card'),
+        (r'.\WebServer\nModbusCE.dll',              r'C:\Storage Card'),
+        (r'.\WebServer\WebserverCe.dll',            r'C:\Storage Card'),
+        (r'.\WebServer\WebServerUDP.exe',           r'C:\Storage Card')
     ]
 
     total_files = len(files_to_copy)
