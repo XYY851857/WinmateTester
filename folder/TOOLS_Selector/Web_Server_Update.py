@@ -3,6 +3,9 @@ import shutil
 import time
 import ctypes
 import sys
+import json
+import uuid
+import datetime
 
 def disable_close_button():
     """
@@ -41,6 +44,41 @@ def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, lengt
     # Print New Line on Complete
     if iteration == total: 
         print()
+
+def get_mac_address():
+    """
+    Returns the MAC address of the machine.
+    """
+    mac = uuid.getnode()
+    return ':'.join(('%012X' % mac)[i:i+2] for i in range(0, 12, 2))
+
+def write_log():
+    """
+    Writes the update log to .\log\Web_Server_Update_log.txt in JSON format.
+    """
+    log_dir = r'.\log'
+    log_file = os.path.join(log_dir, 'Web_Server_Update_log.txt')
+    
+    # Ensure log directory exists
+    if not os.path.exists(log_dir):
+        try:
+            os.makedirs(log_dir)
+        except OSError as e:
+            print(f"\nError creating log directory {log_dir}: {e}")
+            return
+
+    # Data to log
+    log_data = {
+        "MAC Address": get_mac_address(),
+        "Installation Date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    
+    try:
+        with open(log_file, 'w', encoding='utf-8') as f:
+            json.dump(log_data, f, ensure_ascii=False, indent=4)
+        print(f"\nLog written to {log_file}")
+    except Exception as e:
+        print(f"\nError writing log file: {e}")
 
 def main():
     # Attempt to disable the close button upon start
@@ -85,6 +123,9 @@ def main():
         
         # Update progress bar
         print_progress_bar(i + 1, total_files, prefix='Progress:', suffix='Complete', length=50)
+
+    # Write log before reboot
+    write_log()
 
     print("\nUpdate Complete. System will reboot...")
     
