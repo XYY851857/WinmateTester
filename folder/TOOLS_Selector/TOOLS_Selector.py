@@ -17,10 +17,10 @@ def is_admin():
 
 
 def run_generic_tool(name: str):
-    """根據子資料夾名稱 name，優先在
-    D:\S8521\Update_Repo\{name}\{name}_V*.exe 找最新版本；
-    若找不到，再到 D:\S8521\Update_Repo\{name}_V*.exe 搜尋。
-    """
+    # """根據子資料夾名稱 name，優先在
+    # D:\S8521\Update_Repo\{name}\{name}_V*.exe 找最新版本；
+    # 若找不到，再到 D:\S8521\Update_Repo\{name}_V*.exe 搜尋。
+    # """
     base_dir = r"D:\S8521\Update_Repo"
     candidates = []
     pattern = re.compile(fr"{re.escape(name)}_V(\d+)_(\d+)_(\d+)\.exe", re.I)
