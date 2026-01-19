@@ -101,8 +101,6 @@ def update_process(root, progress_var, status_var, on_failure):
         status_var.set("Writing log...")
         write_log(status_var)
         status_var.set("更新完成 重啟中...")
-        time.sleep(2)
-        os.system("shutdown /r /t 0")
         # Close GUI after command issue (though shutdown kills it)
         root.quit()
     else:
