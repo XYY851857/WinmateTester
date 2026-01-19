@@ -146,7 +146,7 @@ def main():
     progress_var = tk.DoubleVar()
     progress_bar = ttk.Progressbar(frame, variable=progress_var, maximum=100, style="TProgressbar")
     progress_bar.pack(fill=tk.X)
-    
+
     # Start thread
     t = threading.Thread(target=update_process, args=(root, progress_var, status_var))
     t.daemon = True # Ensure thread dies with app
