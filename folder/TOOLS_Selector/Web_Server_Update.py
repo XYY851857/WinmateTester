@@ -134,4 +134,5 @@ def main():
     os.system("shutdown /r /t 0")
 
 if __name__ == "__main__":
+    subprocess.run(['powershell', '-Command', 'Stop-Process -Name "WebServerUDP" -Force'],  capture_output=True, text=True, check=True)
     main()
