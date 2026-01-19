@@ -6,6 +6,7 @@ import sys
 import json
 import uuid
 import datetime
+import subprocess
 
 def disable_close_button():
     """
@@ -40,7 +41,7 @@ def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, lengt
     percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
     filled_length = int(length * iteration // total)
     bar = fill * filled_length + '-' * (length - filled_length)
-    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end=print_end)
+    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end=print_end, flush=True)
     # Print New Line on Complete
     if iteration == total: 
         print()
@@ -97,7 +98,9 @@ def main():
     
     print("Starting Update Process...")
     print_progress_bar(0, total_files, prefix='Progress:', suffix='Complete', length=50)
+    time.sleep(1) # Pause to let user see the start
 
+    success_count = 0
     for i, (src, dst_dir) in enumerate(files_to_copy):
         try:
             # Resolve absolute path for source (assuming running from script directory)
@@ -113,8 +116,10 @@ def main():
             # Copy file (this will overwrite if exists)
             shutil.copy2(src_path, dst_file)
             
-            # Optional: Simulate a small delay if files are small, to let user see progress
-            time.sleep(0.5)
+            # Optional: Simulate a delay to let user see progress
+            time.sleep(1.0)
+            
+            success_count += 1
             
         except Exception as e:
             # Log error but continue or exit? Usually defined by requirements.
@@ -124,8 +129,11 @@ def main():
         # Update progress bar
         print_progress_bar(i + 1, total_files, prefix='Progress:', suffix='Complete', length=50)
 
-    # Write log before reboot
-    write_log()
+    # Write log before reboot ONLY if all files were copied successfully
+    if success_count == total_files:
+        write_log()
+    else:
+        print("\nUpdate failed for some files. Log will not be written.")
 
     print("\nUpdate Complete. System will reboot...")
     
@@ -134,5 +142,12 @@ def main():
     os.system("shutdown /r /t 0")
 
 if __name__ == "__main__":
-    subprocess.run(['powershell', '-Command', 'Stop-Process -Name "WebServerUDP" -Force'],  capture_output=True, text=True, check=True)
+    try:
+        subprocess.run(['powershell', '-Command', 'Stop-Process -Name "WebServerUDP" -Force'],  capture_output=True, text=True, check=True)
+    except subprocess.CalledProcessError:
+        # Process might not be running, which is fine
+        pass
+    except Exception as e:
+        print(f"Warning: Failed to stop WebServerUDP: {e}")
+        
     main()
