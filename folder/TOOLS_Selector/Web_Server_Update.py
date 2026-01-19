@@ -49,9 +49,9 @@ def write_log(status_var=None):
         print(msg)
         if status_var: status_var.set(msg)
 
-def update_process(root, progress_var, status_var):
+def update_process(root, progress_var, status_var, on_failure):
     # 1. Stop the process
-    status_var.set("Stopping WebServerUDP...")
+    status_var.set("正在準備更新...")
     try:
         subprocess.run(['powershell', '-Command', 'Stop-Process -Name "WebServerUDP" -Force'],  capture_output=True, text=True, check=True)
     except subprocess.CalledProcessError:
@@ -76,7 +76,7 @@ def update_process(root, progress_var, status_var):
         try:
             src_path = os.path.abspath(src)
             filename = os.path.basename(src_path)
-            status_var.set(f"Copying {filename}...")
+            status_var.set(f"正在複製 {filename}...")
             
             if not os.path.exists(dst_dir):
                 os.makedirs(dst_dir, exist_ok=True)
@@ -100,16 +100,15 @@ def update_process(root, progress_var, status_var):
     if success_count == total_files:
         status_var.set("Writing log...")
         write_log(status_var)
-        status_var.set("Update Complete. Rebooting...")
+        status_var.set("更新完成 重啟中...")
         time.sleep(2)
         os.system("shutdown /r /t 0")
         # Close GUI after command issue (though shutdown kills it)
         root.quit()
     else:
-        status_var.set("Update Failed. Rebooting in 5s...")
-        time.sleep(5)
-        os.system("shutdown /r /t 0")
-        root.quit()
+        status_var.set("更新失敗. 請點擊確定繼續...")
+        # Invoke UI change on main thread
+        root.after(0, on_failure)
 
 def main():
     root = tk.Tk()
@@ -140,15 +139,24 @@ def main():
     root.configure(bg='#f0f0f0')
     
     status_var = tk.StringVar(value="Initializing...")
-    label = tk.Label(frame, textvariable=status_var, bg='#f0f0f0', font=('Arial', 10))
+    label = tk.Label(frame, textvariable=status_var, bg='#f0f0f0', font=('Arial', 16))
     label.pack(pady=(0, 10))
     
     progress_var = tk.DoubleVar()
     progress_bar = ttk.Progressbar(frame, variable=progress_var, maximum=100, style="TProgressbar")
     progress_bar.pack(fill=tk.X)
+    
+    # UI Elements (Callback needs access to frame, so defining logic here)
+    def on_failure():
+        def on_confirm():
+            os.system("shutdown /r /t 0")
+            root.quit()
+            
+        btn = tk.Button(frame, text="確定 (Confirm)", command=on_confirm, font=('Arial', 16), bg='red', fg='white')
+        btn.pack(pady=5)
 
     # Start thread
-    t = threading.Thread(target=update_process, args=(root, progress_var, status_var))
+    t = threading.Thread(target=update_process, args=(root, progress_var, status_var, on_failure))
     t.daemon = True # Ensure thread dies with app
     t.start()
     
