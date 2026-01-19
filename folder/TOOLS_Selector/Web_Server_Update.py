@@ -41,10 +41,15 @@ def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, lengt
     percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
     filled_length = int(length * iteration // total)
     bar = fill * filled_length + '-' * (length - filled_length)
-    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end=print_end, flush=True)
+    
+    # Use sys.stdout.write for better control over the buffer
+    sys.stdout.write(f'\r{prefix} |{bar}| {percent}% {suffix}')
+    sys.stdout.flush()
+    
     # Print New Line on Complete
     if iteration == total: 
-        print()
+        sys.stdout.write('\n')
+        sys.stdout.flush()
 
 def get_mac_address():
     """
@@ -134,8 +139,15 @@ def main():
         write_log()
     else:
         print("\nUpdate failed for some files. Log will not be written.")
+        # Pause to let user see the error
+        print("\nPress Enter to continue to reboot...")
+        try:
+            input()
+        except:
+            time.sleep(5)
 
     print("\nUpdate Complete. System will reboot...")
+    time.sleep(2)
     
     # Execute Reboot command
     # /r = reboot, /t 0 = time 0 seconds
@@ -143,11 +155,20 @@ def main():
 
 if __name__ == "__main__":
     try:
-        subprocess.run(['powershell', '-Command', 'Stop-Process -Name "WebServerUDP" -Force'],  capture_output=True, text=True, check=True)
-    except subprocess.CalledProcessError:
-        # Process might not be running, which is fine
-        pass
+        # Check if we have admin rights/can run powershell
+        try:
+            subprocess.run(['powershell', '-Command', 'Stop-Process -Name "WebServerUDP" -Force'],  capture_output=True, text=True, check=True)
+        except subprocess.CalledProcessError:
+            # Process might not be running, which is fine
+            pass
+        except Exception as e:
+            print(f"Warning: Failed to stop WebServerUDP: {e}")
+            
+        main()
     except Exception as e:
-        print(f"Warning: Failed to stop WebServerUDP: {e}")
-        
-    main()
+        print(f"\nCRITICAL ERROR: Script crashed: {e}")
+        print("Press Enter to exit...")
+        try:
+            input()
+        except:
+            time.sleep(10)
