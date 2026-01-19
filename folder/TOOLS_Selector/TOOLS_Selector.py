@@ -167,7 +167,7 @@ if __name__ == '__main__':
         time.sleep(3)
         subprocess.run(['powershell', '-Command', 'Stop-Process -Name "winvnc" -Force'],  capture_output=True, text=True, check=True)
         subprocess.run(['powershell', '-Command', 'Stop-Process -Name "WebServerUDP" -Force'],  capture_output=True, text=True, check=True)
-        time.sleep(3)
     except:
         pass
+    time.sleep(3)
     subprocess.Popen(r"C:\Storage Card\Autorun.vbs", shell=True)
