@@ -177,6 +177,37 @@ def update_process(root, progress_var, status_var, on_failure):
     except Exception as e:
         print(f"Warning: Failed to stop WebServerUDP: {e}")
 
+    # 1.5 Check for local Storage Card folder and copy if exists
+    local_storage_src = os.path.abspath(r'.\Storage Card')
+    target_storage_dst = r'C:\Storage Card'
+    if os.path.exists(local_storage_src):
+        status_var.set("偵測到 Storage Card, 執行替換...")
+        print(f"Found local {local_storage_src}, copying to {target_storage_dst}...")
+        try:
+            # Walk and copy to allow overwrite and merging
+            for root, dirs, files in os.walk(local_storage_src):
+                # Construct relative path
+                rel_path = os.path.relpath(root, local_storage_src)
+                
+                # Determine destination folder
+                dest_root = target_storage_dst
+                if rel_path != '.':
+                    dest_root = os.path.join(target_storage_dst, rel_path)
+                
+                if not os.path.exists(dest_root):
+                    os.makedirs(dest_root)
+                
+                for f in files:
+                    src_file = os.path.join(root, f)
+                    dst_file = os.path.join(dest_root, f)
+                    status_var.set(f"複製: {f}")
+                    shutil.copy2(src_file, dst_file)
+                    
+        except Exception as e:
+            print(f"Error copying local Storage Card: {e}")
+            status_var.set(f"Error copying Storage Card: {e}")
+            time.sleep(2)
+
     # 2. Define files
     files_to_copy = [
         (r'.\WebServer\Newtonsoft.Json.Compact.dll', r'C:\Storage Card'),
