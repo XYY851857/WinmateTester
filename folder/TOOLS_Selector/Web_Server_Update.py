@@ -17,9 +17,84 @@ def get_mac_address():
     mac = uuid.getnode()
     return ':'.join(('%012X' % mac)[i:i+2] for i in range(0, 12, 2))
 
+def get_model():
+    global model
+    model = ''
+    try:
+        with open('C:/Storage Card/PARAME/Flag.txt', 'r', encoding='utf-16le') as f:
+            lines = f.readlines()
+            if len(lines) >= 2:
+                second_line = lines[1].strip()
+                if second_line.startswith('Limit '):
+                    parts = second_line.split(',')
+                    last_part = parts[-1].strip() if parts else ''
+                    if last_part.isdigit():
+                        model = last_part
+                    else:
+                        model = ''
+                else:
+                    model = ''
+            else:
+                model = ''
+    except Exception:
+        pass
+    try:
+        with open('C:/Storage Card/Parameter/machinedatas.txt', 'r', encoding='utf-8-sig') as f2:
+            lines2 = f2.readlines()
+            if len(lines2) >= 2:
+                line1 = lines2[0].strip()
+                line2 = lines2[1].strip()
+                model = f"{line1} {line2}"
+    except Exception:
+        pass
+    return model
+
+def backup_parame(status_var):
+    """
+    Backups C:\Storage Card\PARAME to a local directory named after the model.
+    """
+    status_var.set("正在備份 PARAME...")
+    try:
+        model_name = get_model()
+        # Fallback if model name is empty or invalid (though get_model ensures string)
+        if not model_name or not model_name.strip():
+            target_dir_name = "PARAME_Backup"
+        else:
+            # Sanitize filename just in case (remove illegal chars for folder name)
+            target_dir_name = "".join([c for c in model_name if c.isalnum() or c in (' ', '-', '_')]).strip()
+            if not target_dir_name:
+                target_dir_name = "PARAME_Backup"
+        
+        # Source and Destination
+        src_dir = r'C:\Storage Card\PARAME'
+        dst_dir = os.path.join(os.getcwd(), target_dir_name) # Backup to current directory
+        
+        if not os.path.exists(src_dir):
+            print(f"Backup skipped: Source {src_dir} does not exist.")
+            return # Skip if source doesn't exist (e.g. dev environment)
+
+        # If destination exists, remove it to ensure fresh backup (or we could version it, but requirement says modify name)
+        # User request: "copy ... to ... PARAME_Backup folder ..., and modify folder name"
+        # Assuming overwrite or fresh copy is desired.
+        if os.path.exists(dst_dir):
+            shutil.rmtree(dst_dir)
+            
+        shutil.copytree(src_dir, dst_dir)
+        print(f"Backed up {src_dir} to {dst_dir}")
+        status_var.set(f"備份完成: {target_dir_name}")
+        time.sleep(1)
+        
+    except Exception as e:
+        msg = f"Backup failed: {e}"
+        print(msg)
+        status_var.set(msg)
+        time.sleep(2) # Let user see error
+
+
 def write_log(status_var=None):
     """
     Writes the update log to .\log\Web_Server_Update_log.txt in JSON format.
+    Structure: {Model: {MAC: {"Installation Date": [dates]}}}
     """
     log_dir = r'.\log'
     log_file = os.path.join(log_dir, 'Web_Server_Update_log.txt')
@@ -34,11 +109,43 @@ def write_log(status_var=None):
             if status_var: status_var.set(msg)
             return
 
-    # Data to log
-    log_data = {
-        "MAC Address": get_mac_address(),
-        "Installation Date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    }
+    # Read existing log or start new
+    log_data = {}
+    if os.path.exists(log_file):
+        try:
+            with open(log_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+                if content:
+                    log_data = json.loads(content)
+        except Exception as e:
+            print(f"Warning: Failed to read existing log: {e}")
+            # Continue with empty data if read fails
+
+    # Prepare new data
+    current_model = get_model()
+    if not current_model or not current_model.strip():
+        current_model = "Unknown"
+        
+    current_mac = get_mac_address()
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Update structure: Model -> MAC -> Installation Date list
+    if current_model not in log_data:
+        log_data[current_model] = {}
+    
+    if current_mac not in log_data[current_model]:
+        log_data[current_model][current_mac] = {"Installation Date": []}
+    
+    # Ensure it's a list (handle legacy format if needed, though we overwrite structure here)
+    if not isinstance(log_data[current_model][current_mac], dict):
+         # Reset if structure is completely wrong for this MAC
+         log_data[current_model][current_mac] = {"Installation Date": []}
+    
+    if "Installation Date" not in log_data[current_model][current_mac]:
+        log_data[current_model][current_mac]["Installation Date"] = []
+        
+    # Append new date
+    log_data[current_model][current_mac]["Installation Date"].append(current_date)
     
     try:
         with open(log_file, 'w', encoding='utf-8') as f:
@@ -50,6 +157,9 @@ def write_log(status_var=None):
         if status_var: status_var.set(msg)
 
 def update_process(root, progress_var, status_var, on_failure):
+    # 0. Backup
+    backup_parame(status_var)
+
     # 1. Stop the process
     status_var.set("正在準備更新...")
     try:
