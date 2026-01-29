@@ -50,38 +50,46 @@ def get_model():
     return model
 
 def backup_parame(status_var):
+    global model_name
     """
-    Backups C:\Storage Card\PARAME to a local directory named after the model.
+    Backups C:\Storage Card\PARAME or Parameter to a local PARAME_Backup directory named after the model.
     """
     status_var.set("正在備份 PARAME...")
     try:
         model_name = get_model()
-        # Fallback if model name is empty or invalid (though get_model ensures string)
+        # Fallback if model name is empty or invalid
         if not model_name or not model_name.strip():
-            target_dir_name = "PARAME_Backup"
+            model_folder_name = "Unknown_Model"
         else:
-            # Sanitize filename just in case (remove illegal chars for folder name)
-            target_dir_name = "".join([c for c in model_name if c.isalnum() or c in (' ', '-', '_')]).strip()
-            if not target_dir_name:
-                target_dir_name = "PARAME_Backup"
+            # Sanitize filename just in case
+            model_folder_name = "".join([c for c in model_name if c.isalnum() or c in (' ', '-', '_')]).strip()
+            if not model_folder_name:
+                model_folder_name = "Unknown_Model"
         
-        # Source and Destination
+        # Source Detection
         src_dir = r'C:\Storage Card\PARAME'
-        dst_dir = os.path.join(os.getcwd(), target_dir_name) # Backup to current directory
-        
         if not os.path.exists(src_dir):
-            print(f"Backup skipped: Source {src_dir} does not exist.")
-            return # Skip if source doesn't exist (e.g. dev environment)
+            src_dir_alt = r'C:\Storage Card\Parameter'
+            if os.path.exists(src_dir_alt):
+                src_dir = src_dir_alt
+            else:
+                print(f"Backup skipped: neither PARAME nor Parameter exist.")
+                return 
 
-        # If destination exists, remove it to ensure fresh backup (or we could version it, but requirement says modify name)
-        # User request: "copy ... to ... PARAME_Backup folder ..., and modify folder name"
-        # Assuming overwrite or fresh copy is desired.
+        # Destination
+        backup_root = os.path.join(os.getcwd(), "PARAME_Backup")
+        dst_dir = os.path.join(backup_root, model_folder_name)
+        
+        if not os.path.exists(backup_root):
+            os.makedirs(backup_root)
+
+        # If destination exists, remove it to ensure fresh backup
         if os.path.exists(dst_dir):
             shutil.rmtree(dst_dir)
             
         shutil.copytree(src_dir, dst_dir)
         print(f"Backed up {src_dir} to {dst_dir}")
-        status_var.set(f"備份完成: {target_dir_name}")
+        status_var.set(f"備份完成: {model_folder_name}")
         time.sleep(1)
         
     except Exception as e:
@@ -122,30 +130,30 @@ def write_log(status_var=None):
             # Continue with empty data if read fails
 
     # Prepare new data
-    current_model = get_model()
-    if not current_model or not current_model.strip():
-        current_model = "Unknown"
+    model_name = get_model()
+    if not model_name or not model_name.strip():
+        model_name = "Unknown"
         
     current_mac = get_mac_address()
     current_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # Update structure: Model -> MAC -> Installation Date list
-    if current_model not in log_data:
-        log_data[current_model] = {}
+    if model_name not in log_data:
+        log_data[model_name] = {}
     
-    if current_mac not in log_data[current_model]:
-        log_data[current_model][current_mac] = {"Installation Date": []}
+    if current_mac not in log_data[model_name]:
+        log_data[model_name][current_mac] = {"Installation Date": []}
     
     # Ensure it's a list (handle legacy format if needed, though we overwrite structure here)
-    if not isinstance(log_data[current_model][current_mac], dict):
+    if not isinstance(log_data[model_name][current_mac], dict):
          # Reset if structure is completely wrong for this MAC
-         log_data[current_model][current_mac] = {"Installation Date": []}
+         log_data[model_name][current_mac] = {"Installation Date": []}
     
-    if "Installation Date" not in log_data[current_model][current_mac]:
-        log_data[current_model][current_mac]["Installation Date"] = []
+    if "Installation Date" not in log_data[model_name][current_mac]:
+        log_data[model_name][current_mac]["Installation Date"] = []
         
     # Append new date
-    log_data[current_model][current_mac]["Installation Date"].append(current_date)
+    log_data[model_name][current_mac]["Installation Date"].append(current_date)
     
     try:
         with open(log_file, 'w', encoding='utf-8') as f:
