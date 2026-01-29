@@ -64,7 +64,8 @@ def update_process(root, progress_var, status_var, on_failure):
         (r'.\WebServer\Newtonsoft.Json.Compact.dll', r'C:\Storage Card'),
         (r'.\WebServer\nModbusCE.dll',              r'C:\Storage Card'),
         (r'.\WebServer\WebserverCe.dll',            r'C:\Storage Card'),
-        (r'.\WebServer\WebServerUDP.exe',           r'C:\Storage Card')
+        (r'.\WebServer\WebServerUDP.exe',           r'C:\Storage Card'),
+        (r'.\WebServer\AutoRun.vbs',                r'C:\Storage Card')
     ]
     total_files = len(files_to_copy)
     
