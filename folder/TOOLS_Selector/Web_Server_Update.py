@@ -185,24 +185,23 @@ def update_process(root, progress_var, status_var, on_failure):
         print(f"Found local {local_storage_src}, copying to {target_storage_dst}...")
         try:
             # Walk and copy to allow overwrite and merging
-            for root, dirs, files in os.walk(local_storage_src):
+            for walk_root, dirs, files in os.walk(local_storage_src):
                 # Construct relative path
-                rel_path = os.path.relpath(root, local_storage_src)
-                
+                rel_path = os.path.relpath(walk_root, local_storage_src)
+
                 # Determine destination folder
                 dest_root = target_storage_dst
                 if rel_path != '.':
                     dest_root = os.path.join(target_storage_dst, rel_path)
-                
+
                 if not os.path.exists(dest_root):
                     os.makedirs(dest_root)
-                
+
                 for f in files:
-                    src_file = os.path.join(root, f)
+                    src_file = os.path.join(walk_root, f)
                     dst_file = os.path.join(dest_root, f)
                     status_var.set(f"複製: {f}")
                     shutil.copy2(src_file, dst_file)
-                    
         except Exception as e:
             print(f"Error copying local Storage Card: {e}")
             status_var.set(f"Error copying Storage Card: {e}")
