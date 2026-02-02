@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Server Update Log Viewer</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --surface-color: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --accent-color: #6366f1;
+            --accent-hover: #4f46e5;
+            --border-color: #334155;
+            --table-hover: #334155;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        header {
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .btn {
+            background-color: var(--accent-color);
+            color: white;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .btn:hover {
+            background-color: var(--accent-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn input[type=file] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .search-box {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            min-width: 250px;
+            transition: border-color 0.2s;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            background-color: var(--bg-color);
+            padding: 1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+            transition: color 0.2s;
+        }
+
+        th:hover {
+            color: var(--text-primary);
+        }
+
+        th.sort-asc::after {
+            content: " ▲";
+            font-size: 0.8em;
+        }
+
+        th.sort-desc::after {
+            content: " ▼";
+            font-size: 0.8em;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background-color: var(--table-hover);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .stats {
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-align: right;
+        }
+
+        /* Drag and Drop Overlay */
+        #drop-zone {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: var(--accent-color);
+            font-size: 1.5rem;
+            font-weight: bold;
+            border: 4px dashed var(--accent-color);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="drop-zone">
+        <div>📂 Drop log file here</div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>Log Viewer</h1>
+            <div class="controls">
+                <input type="text" id="searchInput" class="search-box" placeholder="Search logs..." disabled>
+                <div class="file-input-wrapper btn">
+                    <span>📁 Open File</span>
+                    <input type="file" id="fileInput" accept=".txt,.json">
+                </div>
+            </div>
+        </header>
+
+        <div class="table-container">
+            <table id="logTable">
+                <thead>
+                    <tr>
+                        <th data-sort="model">Model</th>
+                        <th data-sort="mac">MAC Address</th>
+                        <th data-sort="date">Installation Date</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <!-- Data will be inserted here -->
+                </tbody>
+            </table>
+        </div>
+
+        <div id="emptyState" class="empty-state">
+            <div class="empty-icon">📊</div>
+            <p>Select "Web_Server_Update_log.txt" to view data</p>
+        </div>
+
+        <div class="stats" id="stats"></div>
+    </div>
+
+    <script>
+        let logData = [];
+        const fileInput = document.getElementById('fileInput');
+        const searchInput = document.getElementById('searchInput');
+        const tableBody = document.getElementById('tableBody');
+        const emptyState = document.getElementById('emptyState');
+        const statsDiv = document.getElementById('stats');
+        const dropZone = document.getElementById('drop-zone');
+        let currentSort = { column: null, direction: 'asc' };
+
+        // File Loading
+        fileInput.addEventListener('change', handleFileSelect);
+
+        // Search
+        searchInput.addEventListener('input', (e) => {
+            renderTable(filterData(e.target.value));
+        });
+
+        // Sorting
+        document.querySelectorAll('th').forEach(th => {
+            th.addEventListener('click', () => {
+                const column = th.dataset.sort;
+                if (currentSort.column === column) {
+                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.column = column;
+                    currentSort.direction = 'asc';
+                }
+
+                // Update UI indicators
+                document.querySelectorAll('th').forEach(t => t.classList.remove('sort-asc', 'sort-desc'));
+                th.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+
+                renderTable(filterData(searchInput.value));
+            });
+        });
+
+        // Drag and Drop
+        window.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.display = 'flex';
+        });
+
+        window.addEventListener('dragleave', (e) => {
+            if (e.relatedTarget === null) {
+                dropZone.style.display = 'none';
+            }
+        });
+
+        window.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.display = 'none';
+            const file = e.dataTransfer.files[0];
+            if (file) processFile(file);
+        });
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) processFile(file);
+        }
+
+        function processFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const json = JSON.parse(e.target.result);
+                    parseLogData(json);
+                    searchInput.disabled = false;
+                    emptyState.style.display = 'none';
+                } catch (error) {
+                    alert('Error parsing JSON: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function parseLogData(json) {
+            logData = [];
+            // Flatten the JSON structure: {Model: {MAC: {"Installation Date": [dates]}}}
+            for (const [model, macs] of Object.entries(json)) {
+                for (const [mac, details] of Object.entries(macs)) {
+                    if (details["Installation Date"] && Array.isArray(details["Installation Date"])) {
+                        details["Installation Date"].forEach(date => {
+                            logData.push({
+                                model: model,
+                                mac: mac,
+                                date: date
+                            });
+                        });
+                    }
+                }
+            }
+            renderTable(logData);
+        }
+
+        function filterData(query) {
+            if (!query) return sortData(logData);
+            const lowerQuery = query.toLowerCase();
+            const filtered = logData.filter(item =>
+                item.model.toLowerCase().includes(lowerQuery) ||
+                item.mac.toLowerCase().includes(lowerQuery) ||
+                item.date.toLowerCase().includes(lowerQuery)
+            );
+            return sortData(filtered);
+        }
+
+        function sortData(data) {
+            if (!currentSort.column) return data;
+
+            return [...data].sort((a, b) => {
+                const valA = a[currentSort.column].toLowerCase();
+                const valB = b[currentSort.column].toLowerCase();
+
+                if (valA < valB) return currentSort.direction === 'asc' ? -1 : 1;
+                if (valA > valB) return currentSort.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        function renderTable(data) {
+            tableBody.innerHTML = '';
+
+            if (data.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="3" style="text-align:center; color: var(--text-secondary);">No matching records found</td></tr>';
+                statsDiv.textContent = '';
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${escapeHtml(row.model)}</td>
+                    <td style="font-family: monospace;">${escapeHtml(row.mac)}</td>
+                    <td>${escapeHtml(row.date)}</td>
+                `;
+                fragment.appendChild(tr);
+            });
+            tableBody.appendChild(fragment);
+            statsDiv.textContent = `Showing ${data.length} records`;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+
+</html>
