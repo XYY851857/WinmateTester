@@ -219,6 +219,8 @@ def update_process(root, progress_var, status_var, on_failure):
     
     # 3. Copy Loop
     success_count = 0
+    failed_files = []
+    
     time.sleep(1) # Short pause to render GUI before starting heavy IO
     
     for i, (src, dst_dir) in enumerate(files_to_copy):
@@ -242,20 +244,25 @@ def update_process(root, progress_var, status_var, on_failure):
             time.sleep(0.5)
             
         except Exception as e:
-            status_var.set(f"Error: {e}")
-            time.sleep(2) # Show error
+            msg = f"Error: {e}"
+            print(msg)
+            status_var.set(msg)
+            failed_files.append(f"{os.path.basename(src)} ({e})")
+            time.sleep(1) # Show error briefly but continue
 
     # 4. Finalize
-    if success_count == total_files:
+    # Check if any failures occurred (success_count might be less than total)
+    if not failed_files:
         status_var.set("Writing log...")
         write_log(status_var)
         status_var.set("更新完成 重啟中...")
-        # Close GUI after command issue (though shutdown kills it)
+        os.system("shutdown /r /t 0")
         root.quit()
+        
     else:
         status_var.set("更新失敗. 請點擊確定繼續...")
-        # Invoke UI change on main thread
-        root.after(0, on_failure)
+        # Invoke UI change on main thread with error details
+        root.after(0, lambda: on_failure(failed_files))
 
 def main():
     root = tk.Tk()
@@ -267,8 +274,8 @@ def main():
     root.attributes('-topmost', True)
     
     # Set window size and position (centered)
-    window_width = 400
-    window_height = 100
+    window_width = 500  # Increased width for error messages
+    window_height = 250 # Increased height for error list
     screen_width = root.winfo_screenwidth()
     screen_height = root.winfo_screenheight()
     x_cordinate = int((screen_width/2) - (window_width/2))
@@ -286,21 +293,52 @@ def main():
     root.configure(bg='#f0f0f0')
     
     status_var = tk.StringVar(value="Initializing...")
-    label = tk.Label(frame, textvariable=status_var, bg='#f0f0f0', font=('Arial', 16))
+    label = tk.Label(frame, textvariable=status_var, bg='#f0f0f0', font=('Arial', 14), wraplength=460)
     label.pack(pady=(0, 10))
     
     progress_var = tk.DoubleVar()
     progress_bar = ttk.Progressbar(frame, variable=progress_var, maximum=100, style="TProgressbar")
     progress_bar.pack(fill=tk.X)
     
+    # Error Display Label (Initially hidden)
+    error_var = tk.StringVar(value="")
+    error_label = tk.Label(frame, textvariable=error_var, bg='#f0f0f0', font=('Arial', 10), justify=tk.LEFT, fg='red')
+    error_label.pack(pady=5, anchor='w')
+    
     # UI Elements (Callback needs access to frame, so defining logic here)
-    def on_failure():
+    def on_failure(failed_files_list=None):
+        # Update UI to show detailed errors
+        status_var.set("更新完成 (部分失敗)")
+        
+        err_msg = "失敗檔案 (Failed Files):\n"
+        if failed_files_list:
+            # Show up to 5 files to avoid overflow, or wrap in a scrollbox (trying simple text first)
+            count = 0
+            for f in failed_files_list:
+                err_msg += f"- {f}\n"
+                count += 1
+                if count >= 5:
+                    err_msg += f"...and {len(failed_files_list) - 5} more."
+                    break
+        else:
+             err_msg += "Unknown error"
+        
+        error_var.set(err_msg)
+        
         def on_confirm():
-            os.system("shutdown /r /t 0")
+            try:
+                # Launch explorer.exe
+                try:
+                    subprocess.Popen(["explorer.exe"])
+                except:
+                   os.system("explorer.exe")
+            except Exception as e:
+                print(f"Failed to launch explorer: {e}")
+            
             root.quit()
             
         btn = tk.Button(frame, text="確定 (Confirm)", command=on_confirm, font=('Arial', 16), bg='red', fg='white')
-        btn.pack(pady=5)
+        btn.pack(pady=10)
 
     # Start thread
     t = threading.Thread(target=update_process, args=(root, progress_var, status_var, on_failure))
