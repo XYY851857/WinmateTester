@@ -336,12 +336,15 @@
             for (const [model, macs] of Object.entries(json)) {
                 for (const [mac, details] of Object.entries(macs)) {
                     if (details["Installation Date"] && Array.isArray(details["Installation Date"])) {
-                        details["Installation Date"].forEach(date => {
-                            logData.push({
-                                model: model,
-                                mac: mac,
-                                date: date
-                            });
+                        // Sort dates descending (Newest to Oldest) within the entry
+                        const sortedDates = [...details["Installation Date"]].sort((a, b) => {
+                            return b.localeCompare(a);
+                        });
+
+                        logData.push({
+                            model: model,
+                            mac: mac,
+                            dates: sortedDates
                         });
                     }
                 }
@@ -355,7 +358,7 @@
             const filtered = logData.filter(item =>
                 item.model.toLowerCase().includes(lowerQuery) ||
                 item.mac.toLowerCase().includes(lowerQuery) ||
-                item.date.toLowerCase().includes(lowerQuery)
+                item.dates.some(d => d.toLowerCase().includes(lowerQuery))
             );
             return sortData(filtered);
         }
@@ -364,8 +367,19 @@
             if (!currentSort.column) return data;
 
             return [...data].sort((a, b) => {
-                const valA = a[currentSort.column].toLowerCase();
-                const valB = b[currentSort.column].toLowerCase();
+                let valA, valB;
+
+                if (currentSort.column === 'date') {
+                    // Use the newest date (index 0) for sorting
+                    valA = (a.dates && a.dates.length > 0) ? a.dates[0] : '';
+                    valB = (b.dates && b.dates.length > 0) ? b.dates[0] : '';
+                } else {
+                    valA = a[currentSort.column] || '';
+                    valB = b[currentSort.column] || '';
+                }
+
+                valA = valA.toString().toLowerCase();
+                valB = valB.toString().toLowerCase();
 
                 if (valA < valB) return currentSort.direction === 'asc' ? -1 : 1;
                 if (valA > valB) return currentSort.direction === 'asc' ? 1 : -1;
@@ -385,10 +399,14 @@
             const fragment = document.createDocumentFragment();
             data.forEach(row => {
                 const tr = document.createElement('tr');
+
+                // Format dates with divs for vertical stacking
+                const datesHtml = row.dates.map(d => `<div>${escapeHtml(d)}</div>`).join('');
+
                 tr.innerHTML = `
                     <td>${escapeHtml(row.model)}</td>
                     <td style="font-family: monospace;">${escapeHtml(row.mac)}</td>
-                    <td>${escapeHtml(row.date)}</td>
+                    <td>${datesHtml}</td>
                 `;
                 fragment.appendChild(tr);
             });
