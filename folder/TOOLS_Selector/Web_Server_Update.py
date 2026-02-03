@@ -209,11 +209,11 @@ def update_process(root, progress_var, status_var, on_failure):
 
     # 2. Define files
     files_to_copy = [
-        (r'.\WebServer\Newtonsoft.Json.Compact.dll', r'C:\Storage Card'),
+        (r'.\WebServer\AutoRun.vbs',                r'C:\Storage Card'),
         (r'.\WebServer\nModbusCE.dll',              r'C:\Storage Card'),
         (r'.\WebServer\WebserverCe.dll',            r'C:\Storage Card'),
         (r'.\WebServer\WebServerUDP.exe',           r'C:\Storage Card'),
-        (r'.\WebServer\AutoRun.vbs',                r'C:\Storage Card')
+        (r'.\WebServer\Newtonsoft.Json.Compact.dll', r'C:\Storage Card')
     ]
     total_files = len(files_to_copy)
     
@@ -325,6 +325,10 @@ def main():
         
         error_var.set(err_msg)
         
+        # Frame for buttons to easily remove them on retry
+        btn_frame = tk.Frame(frame, bg='#f0f0f0')
+        btn_frame.pack(pady=10)
+        
         def on_confirm():
             try:
                 # Launch explorer.exe
@@ -336,9 +340,25 @@ def main():
                 print(f"Failed to launch explorer: {e}")
             
             root.quit()
+        
+        def on_retry():
+            # Clear error message
+            error_var.set("")
+            status_var.set("Retrying...")
             
-        btn = tk.Button(frame, text="確定 (Confirm)", command=on_confirm, font=('Arial', 16), bg='red', fg='white')
-        btn.pack(pady=10)
+            # Remove buttons
+            btn_frame.destroy()
+            
+            # Restart thread
+            t = threading.Thread(target=update_process, args=(root, progress_var, status_var, on_failure))
+            t.daemon = True
+            t.start()
+            
+        btn_confirm = tk.Button(btn_frame, text="確定 (Confirm)", command=on_confirm, font=('Arial', 16), bg='red', fg='white')
+        btn_confirm.pack(side=tk.LEFT, padx=10)
+        
+        btn_retry = tk.Button(btn_frame, text="重試 (Retry)", command=on_retry, font=('Arial', 16), bg='blue', fg='white')
+        btn_retry.pack(side=tk.LEFT, padx=10)
 
     # Start thread
     t = threading.Thread(target=update_process, args=(root, progress_var, status_var, on_failure))
