@@ -644,8 +644,25 @@ def close_app():
     root.destroy()
 
 
+# 隱藏按鈕連點紀錄（5 秒內點 3 次才觸發）
+_logo_click_times = []
+
 def run_logo_change():
-    """執行開機底圖更換（由按鈕觸發）"""
+    """隱藏按鈕觸發：5 秒內連點 3 次才執行，偵測 a 資料夾存在時彈出確認"""
+    now = time.time()
+    _logo_click_times.append(now)
+    # 只保留 5 秒內的點擊紀錄
+    while _logo_click_times and now - _logo_click_times[0] > 5:
+        _logo_click_times.pop(0)
+    if len(_logo_click_times) < 3:
+        return  # 尚未達到 3 次，不觸發
+    # 達到 3 次，清除紀錄並繼續
+    _logo_click_times.clear()
+
+    if not os.path.exists('.\\0\\SetupUtility\\a'):
+        return  # 資料夾不存在，什麼事都不做
+    if not messagebox.askokcancel("確認", "是否更換NO LOGO底圖"):
+        return
     combined = f'''
                     cd 0;
                     cd SetupUtility;
@@ -859,7 +876,7 @@ def ensure_program_fw_rules(program_path: str):
 
 
 def create_gui():
-    global root, progress_var, combo, start_button, end_button, entry, listbox, launch_photo_button, logo_button
+    global root, progress_var, combo, start_button, end_button, entry, listbox, launch_photo_button
     global warning_label, stop_button
     result, detail = addition_command()
     if result is False:
@@ -920,12 +937,6 @@ def create_gui():
     stop_button = tk.Button(stop_frame, text="終止安裝", command=abort_install, font=font, state=tk.DISABLED)
     stop_button.pack(side='right', padx=5, expand=True, fill='x')
 
-    # 偵測到 a 資料夾時顯示「更改開機畫面 NO LOGO」按鈕
-    if os.path.exists('.\\0\\SetupUtility\\a'):
-        logo_frame = tk.Frame(root)
-        logo_frame.pack(pady=5, padx=20, fill='x')
-        logo_button = tk.Button(logo_frame, text="更改開機畫面\nNO LOGO", command=run_logo_change, font=font)
-        logo_button.pack(expand=True, fill='x')
 
     progress_frame = tk.Frame(root)
     progress_frame.pack(pady=5, padx=20, fill='x')
@@ -937,7 +948,9 @@ def create_gui():
     warning_frame = tk.Frame(root)
     warning_frame.pack(pady=5, padx=20, fill='x')
 
-    warning_label = tk.Label(warning_frame, text='執行完成會自動重新啓動\n請勿直接斷電', font=font)
+    warning_label = tk.Button(warning_frame, text='執行完成會自動重新啓動\n請勿直接斷電', font=font,
+                               bd=0, relief='flat', activebackground=warning_frame.cget('bg'),
+                               cursor='arrow', command=run_logo_change)
     warning_label.pack()
     warning_font_color()
 
