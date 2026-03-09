@@ -564,6 +564,23 @@ def update_connecter_options():
         listbox.insert(tk.END, it)
 
 
+def _has_existing_files():
+    """檢查 C:/Storage Card/ 是否有 AutoRun.vbs 以外的檔案，或 C:/Storage Card2/ 是否有任何檔案"""
+    card1 = 'C:\\Storage Card'
+    card2 = 'C:\\Storage Card2'
+    if os.path.isdir(card1):
+        for name in os.listdir(card1):
+            full = os.path.join(card1, name)
+            if os.path.isfile(full) and name.lower() != 'autorun.vbs':
+                return True
+            if os.path.isdir(full):
+                return True
+    if os.path.isdir(card2):
+        if os.listdir(card2):
+            return True
+    return False
+
+
 def start_copy(paths_dict):
     lock_button()
     abort_event.clear()
@@ -579,6 +596,12 @@ def start_copy(paths_dict):
         messagebox.showwarning("錯誤", "請選擇一個選項")
         unlock_button()
         return
+
+    # 二次確認：若 Storage Card 或 Storage Card2 已有檔案，提示使用者確認
+    if _has_existing_files():
+        if not messagebox.askokcancel("確認", "偵測到 Storage Card 或 Storage Card2 中已有檔案，是否繼續執行？"):
+            unlock_button()
+            return
 
     if selected_option == "清除Card1, Card2":
         storage_card_folder = os.path.join(dst_base_folder, "Storage Card")
@@ -621,20 +644,22 @@ def close_app():
     root.destroy()
 
 
+def run_logo_change():
+    """執行開機底圖更換（由按鈕觸發）"""
+    combined = f'''
+                    cd 0;
+                    cd SetupUtility;
+                    cd a; 
+                    .\\setup.exe batch install enable-entry
+                '''
+    try:
+        subprocess.run(['powershell', '-Command', combined], capture_output=True, text=True, check=True)
+        messagebox.showinfo("完成", "開機底圖更換成功")
+    except subprocess.CalledProcessError as e:
+        messagebox.showinfo("錯誤", f"開機底圖設定失敗，請重試")
+
+
 def addition_command():
-    if os.path.exists('.\\0\\SetupUtility\\a'):
-        combined = f'''
-                        cd 0;
-                        cd SetupUtility;
-                        cd a; 
-                        .\\setup.exe batch install enable-entry
-                    '''
-        try:
-            subprocess.run(['powershell', '-Command', combined], capture_output=True, text=True, check=True)
-            print('開機底圖更換成功')
-        except subprocess.CalledProcessError as e:
-            messagebox.showinfo("錯誤", f"開機底圖設定失敗，請重試")
-            return False, '開機底圖設定'
     if os.path.exists('.\\0\\SetupUtility\\addition_command.txt'):
         try:
             with open('.\\0\\SetupUtility\\addition_command.txt', 'r', encoding='UTF-8') as file:
@@ -834,7 +859,7 @@ def ensure_program_fw_rules(program_path: str):
 
 
 def create_gui():
-    global root, progress_var, combo, start_button, end_button, entry, listbox, launch_photo_button
+    global root, progress_var, combo, start_button, end_button, entry, listbox, launch_photo_button, logo_button
     global warning_label, stop_button
     result, detail = addition_command()
     if result is False:
@@ -894,6 +919,13 @@ def create_gui():
     stop_frame.pack(pady=5, padx=20, fill='x')
     stop_button = tk.Button(stop_frame, text="終止安裝", command=abort_install, font=font, state=tk.DISABLED)
     stop_button.pack(side='right', padx=5, expand=True, fill='x')
+
+    # 偵測到 a 資料夾時顯示「更改開機畫面 NO LOGO」按鈕
+    if os.path.exists('.\\0\\SetupUtility\\a'):
+        logo_frame = tk.Frame(root)
+        logo_frame.pack(pady=5, padx=20, fill='x')
+        logo_button = tk.Button(logo_frame, text="更改開機畫面\nNO LOGO", command=run_logo_change, font=font)
+        logo_button.pack(expand=True, fill='x')
 
     progress_frame = tk.Frame(root)
     progress_frame.pack(pady=5, padx=20, fill='x')
