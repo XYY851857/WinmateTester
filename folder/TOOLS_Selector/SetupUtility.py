@@ -645,28 +645,34 @@ def close_app():
 
 
 # 隱藏按鈕連點紀錄（5 秒內點 3 次才觸發）
-_logo_click_times = []
+_logo_click_times_left = []
+_logo_click_times_right = []
 
-def run_logo_change():
-    """隱藏按鈕觸發：5 秒內連點 3 次才執行，偵測 a 資料夾存在時彈出確認"""
+
+def _check_triple_click(click_list):
+    """檢查 5 秒內是否達 3 次點擊，達成則清除紀錄並回傳 True"""
     now = time.time()
-    _logo_click_times.append(now)
-    # 只保留 5 秒內的點擊紀錄
-    while _logo_click_times and now - _logo_click_times[0] > 5:
-        _logo_click_times.pop(0)
-    if len(_logo_click_times) < 3:
-        return  # 尚未達到 3 次，不觸發
-    # 達到 3 次，清除紀錄並繼續
-    _logo_click_times.clear()
+    click_list.append(now)
+    while click_list and now - click_list[0] > 5:
+        click_list.pop(0)
+    if len(click_list) < 3:
+        return False
+    click_list.clear()
+    return True
 
-    if not os.path.exists('.\\0\\SetupUtility\\a'):
+
+def _run_logo_impl(subfolder, prompt_text):
+    """共用執行邏輯：偵測子資料夾存在時彈出確認，確認後執行開機底圖更換"""
+    folder_path = f'.\\0\\SetupUtility\\a\\{subfolder}'
+    if not os.path.exists(folder_path):
         return  # 資料夾不存在，什麼事都不做
-    if not messagebox.askokcancel("確認", "是否更換NO LOGO底圖"):
+    if not messagebox.askokcancel("確認", prompt_text):
         return
     combined = f'''
                     cd 0;
                     cd SetupUtility;
-                    cd a; 
+                    cd a;
+                    cd {subfolder};
                     .\\setup.exe batch install enable-entry
                 '''
     try:
@@ -674,6 +680,18 @@ def run_logo_change():
         messagebox.showinfo("完成", "開機底圖更換成功")
     except subprocess.CalledProcessError as e:
         messagebox.showinfo("錯誤", f"開機底圖設定失敗，請重試")
+
+
+def run_logo_nologo():
+    """左側隱藏按鈕：5 秒內連點 3 次 → NO LOGO"""
+    if _check_triple_click(_logo_click_times_left):
+        _run_logo_impl('NOLOGO', '更改開機畫面\nNO LOGO')
+
+
+def run_logo_default():
+    """右側隱藏按鈕：5 秒內連點 3 次 → default"""
+    if _check_triple_click(_logo_click_times_right):
+        _run_logo_impl('default', '更改開機畫面\ndefault')
 
 
 def addition_command():
@@ -696,11 +714,12 @@ def warning_font_color():
     def _tick():
         global warning_blink_enabled
         if not warning_blink_enabled:
-            # 停用時不再更新與排程，降低資源佔用
             return
         try:
-            current = warning_label.cget('fg')
-            warning_label.config(fg='red' if current != 'red' else 'blue')
+            current = warning_label_left.cget('fg')
+            new_color = 'red' if current != 'red' else 'blue'
+            warning_label_left.config(fg=new_color)
+            warning_label_right.config(fg=new_color)
         except Exception:
             pass
         finally:
@@ -877,7 +896,7 @@ def ensure_program_fw_rules(program_path: str):
 
 def create_gui():
     global root, progress_var, combo, start_button, end_button, entry, listbox, launch_photo_button
-    global warning_label, stop_button
+    global warning_label_left, warning_label_right, stop_button
     result, detail = addition_command()
     if result is False:
         return False, detail
@@ -948,10 +967,15 @@ def create_gui():
     warning_frame = tk.Frame(root)
     warning_frame.pack(pady=5, padx=20, fill='x')
 
-    warning_label = tk.Button(warning_frame, text='執行完成會自動重新啓動\n請勿直接斷電', font=font,
-                               bd=0, relief='flat', activebackground=warning_frame.cget('bg'),
-                               cursor='arrow', command=run_logo_change)
-    warning_label.pack()
+    warning_label_left = tk.Button(warning_frame, text='執行完成會自動重新啓動', font=font,
+                                    bd=0, relief='flat', activebackground=warning_frame.cget('bg'),
+                                    cursor='arrow', command=run_logo_nologo)
+    warning_label_left.pack(side='left', expand=True)
+
+    warning_label_right = tk.Button(warning_frame, text='請勿直接斷電', font=font,
+                                     bd=0, relief='flat', activebackground=warning_frame.cget('bg'),
+                                     cursor='arrow', command=run_logo_default)
+    warning_label_right.pack(side='right', expand=True)
     warning_font_color()
 
     root.mainloop()
