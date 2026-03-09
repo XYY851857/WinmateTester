@@ -970,12 +970,12 @@ def create_gui():
     warning_label_left = tk.Button(warning_frame, text='執行完成會自動重新啓動', font=font,
                                     bd=0, relief='flat', activebackground=warning_frame.cget('bg'),
                                     cursor='arrow', command=run_logo_nologo)
-    warning_label_left.pack(side='left', expand=True)
+    warning_label_left.pack()
 
     warning_label_right = tk.Button(warning_frame, text='請勿直接斷電', font=font,
                                      bd=0, relief='flat', activebackground=warning_frame.cget('bg'),
                                      cursor='arrow', command=run_logo_default)
-    warning_label_right.pack(side='right', expand=True)
+    warning_label_right.pack()
     warning_font_color()
 
     root.mainloop()
