@@ -303,8 +303,12 @@ def copy_tree_with_progress(src_folder, dst_folder):
             messagebox.showinfo("已終止", "已停止關機動作")
             return
         S_index = selected_option.index('S')
-        select_behavior('r', '關機')
         messagebox.showinfo("完成", f"{selected_option[S_index:]}已複製到 C:\\Storage Card")
+        # 啟動 30 秒重新啟動倒數計時
+        try:
+            root.after(0, enable_restart_countdown)
+        except Exception:
+            pass
         # option = selected_var.get()
         # if option == 0:
         #     pass
