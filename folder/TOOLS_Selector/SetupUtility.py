@@ -619,6 +619,9 @@ def start_copy(paths_dict):
         unlock_button()
         return
 
+    # 強制刷新 UI，確保對話框完全關閉後才繼續
+    root.update()
+
     # 停止現有倒數（若有），等操作完成後再重新開始
     stop_restart_countdown()
 
@@ -696,6 +699,7 @@ def start_copy(paths_dict):
             # 在主線程上啟動不定量進度條，確保立即顯示
             progress_bar.config(mode='indeterminate')
             progress_bar.start(20)
+            root.update()  # 強制刷新，確保進度條動畫立即顯示
 
             def _clear_and_copy():
                 clear_directory(storage_card_folder)
