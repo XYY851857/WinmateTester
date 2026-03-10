@@ -625,14 +625,16 @@ def start_copy(paths_dict):
     # 停止現有倒數（若有），等操作完成後再重新開始
     stop_restart_countdown()
 
-    # 紀錄執行動作：以 MAC 為 Key，記錄時間與項目
-    try:
-        os.makedirs('.\\log', exist_ok=True)
-        mac_address = get_mac_address_by_name()
-        with open('.\\log\\SetupUtility_action_log.txt', 'a', encoding='utf-8') as log_f:
-            log_f.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} 執行: {selected_option}\n')
-    except Exception:
-        pass
+    # 紀錄執行動作：以 MAC 為 Key，記錄時間與項目（使用背景執行緒避免卡住主線程 UI）
+    def _log_action():
+        try:
+            os.makedirs('.\\log', exist_ok=True)
+            mac_address = get_mac_address_by_name()
+            with open('.\\log\\SetupUtility_action_log.txt', 'a', encoding='utf-8') as log_f:
+                log_f.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} 執行: {selected_option}\n')
+        except Exception:
+            pass
+    threading.Thread(target=_log_action, daemon=True).start()
 
     if selected_option == "清除Card1, Card2":
         storage_card_folder = os.path.join(dst_base_folder, "Storage Card")
