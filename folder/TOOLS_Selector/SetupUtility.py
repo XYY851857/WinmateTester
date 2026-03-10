@@ -615,6 +615,9 @@ def start_copy(paths_dict):
         unlock_button()
         return
 
+    # 停止現有倒數（若有），等操作完成後再重新開始
+    stop_restart_countdown()
+
     # 紀錄執行動作：以 MAC 為 Key，記錄時間與項目
     try:
         os.makedirs('.\\log', exist_ok=True)
@@ -644,6 +647,7 @@ def start_copy(paths_dict):
             update_connecter_options()
         except Exception:
             pass
+        enable_restart_countdown()
     elif selected_option == "安裝Connecter":
         threading.Thread(target=install_connecter_process).start()
     elif selected_option == "解除安裝Connecter":
@@ -670,6 +674,7 @@ def start_copy(paths_dict):
                 root.after(0, lambda: progress_var.set(100))
                 messagebox.showinfo("完成", "開機底圖更換成功")
                 update_button_color("green")
+                root.after(0, enable_restart_countdown)
             except subprocess.CalledProcessError as e:
                 root.after(0, lambda: progress_bar.stop())
                 root.after(0, lambda: progress_bar.config(mode='determinate'))
@@ -693,6 +698,61 @@ def start_copy(paths_dict):
 
 def close_app():
     root.destroy()
+
+
+# --- 重新啟動倒數計時 ---
+_restart_after_id = None
+
+
+def _do_restart():
+    """\u57f7\u884c\u91cd\u65b0\u555f\u52d5"""
+    try:
+        subprocess.Popen(['powershell', '-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden',
+                          '-Command', 'shutdown /r /t 0'], creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    except Exception:
+        messagebox.showinfo("\u932f\u8aa4", "\u91cd\u65b0\u555f\u52d5\u57f7\u884c\u932f\u8aa4\uff0c\u8acb\u5f9e\u7cfb\u7d71\u5de6\u4e0b\u89d2\u624b\u52d5\u9ede\u64ca\u95dc\u6a5f")
+    root.destroy()
+
+
+def enable_restart_countdown(seconds=30):
+    """\u5c07\u300c\u7d50\u675f\u7a0b\u5e8f\u300d\u6309\u9215\u8b8a\u66f4\u70ba\u300c\u91cd\u65b0\u555f\u52d5\u300d\u4e26\u958b\u59cb\u5012\u6578"""
+    global _restart_after_id
+
+    # \u53d6\u6d88\u4e4b\u524d\u7684\u5012\u6578\uff08\u82e5\u6709\uff09
+    if _restart_after_id is not None:
+        try:
+            root.after_cancel(_restart_after_id)
+        except Exception:
+            pass
+
+    end_button.config(command=_do_restart)
+    remaining = [seconds]
+
+    def _tick():
+        global _restart_after_id
+        if remaining[0] <= 0:
+            _do_restart()
+            return
+        end_button.config(text=f"\u91cd\u65b0\u555f\u52d5\n{remaining[0]}\u79d2\u7121\u52d5\u4f5c\u5c07\u81ea\u52d5\u91cd\u65b0\u555f\u52d5")
+        remaining[0] -= 1
+        _restart_after_id = root.after(1000, _tick)
+
+    _tick()
+
+
+def stop_restart_countdown():
+    """停止倒數計時並將按鈕恢復為「結束程序」"""
+    global _restart_after_id
+    if _restart_after_id is not None:
+        try:
+            root.after_cancel(_restart_after_id)
+        except Exception:
+            pass
+        _restart_after_id = None
+    try:
+        end_button.config(text="結束程序", command=close_app)
+    except Exception:
+        pass
 
 
 
