@@ -597,11 +597,19 @@ def start_copy(paths_dict):
         unlock_button()
         return
 
-    # 二次確認：若 Storage Card 或 Storage Card2 已有檔案，提示使用者確認
-    if _has_existing_files():
-        if not messagebox.askokcancel("確認", "偵測到 Storage Card 或 Storage Card2 中已有檔案，是否繼續執行？"):
-            unlock_button()
-            return
+    # 二次確認：一律彈出確認
+    if not messagebox.askokcancel("確認", f"確定要執行「{selected_option}」嗎？"):
+        unlock_button()
+        return
+
+    # 紀錄執行動作：以 MAC 為 Key，記錄時間與項目
+    try:
+        os.makedirs('.\\log', exist_ok=True)
+        mac_address = get_mac_address_by_name()
+        with open('.\\log\\SetupUtility_action_log.txt', 'a', encoding='utf-8') as log_f:
+            log_f.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} 執行: {selected_option}\n')
+    except Exception:
+        pass
 
     if selected_option == "清除Card1, Card2":
         storage_card_folder = os.path.join(dst_base_folder, "Storage Card")
@@ -627,6 +635,26 @@ def start_copy(paths_dict):
         threading.Thread(target=install_connecter_process).start()
     elif selected_option == "解除安裝Connecter":
         threading.Thread(target=uninstall_connecter_process).start()
+    elif selected_option in ("更改開機畫面 NO LOGO", "更改開機畫面 default"):
+        subfolder = 'NOLOGO' if 'NO LOGO' in selected_option else 'default'
+        prompt = '更改開機畫面\nNO LOGO' if subfolder == 'NOLOGO' else '更改開機畫面\ndefault'
+        if not messagebox.askokcancel("確認", prompt):
+            unlock_button()
+            return
+        combined = f'''
+                        cd 0;
+                        cd SetupUtility;
+                        cd a;
+                        cd {subfolder};
+                        .\\setup.exe batch install enable-entry
+                    '''
+        try:
+            subprocess.run(['powershell', '-Command', combined], capture_output=True, text=True, check=True)
+            messagebox.showinfo("完成", "開機底圖更換成功")
+            update_button_color("green")
+        except subprocess.CalledProcessError as e:
+            messagebox.showinfo("錯誤", f"開機底圖設定失敗，請重試")
+            update_button_color("red")
     else:
         src_folder = paths_dict.get(selected_option)
         if src_folder:
@@ -643,55 +671,6 @@ def start_copy(paths_dict):
 def close_app():
     root.destroy()
 
-
-# 隱藏按鈕連點紀錄（5 秒內點 3 次才觸發）
-_logo_click_times_left = []
-_logo_click_times_right = []
-
-
-def _check_triple_click(click_list):
-    """檢查 5 秒內是否達 3 次點擊，達成則清除紀錄並回傳 True"""
-    now = time.time()
-    click_list.append(now)
-    while click_list and now - click_list[0] > 5:
-        click_list.pop(0)
-    if len(click_list) < 3:
-        return False
-    click_list.clear()
-    return True
-
-
-def _run_logo_impl(subfolder, prompt_text):
-    """共用執行邏輯：偵測子資料夾存在時彈出確認，確認後執行開機底圖更換"""
-    folder_path = f'.\\0\\SetupUtility\\a\\{subfolder}'
-    if not os.path.exists(folder_path):
-        return  # 資料夾不存在，什麼事都不做
-    if not messagebox.askokcancel("確認", prompt_text):
-        return
-    combined = f'''
-                    cd 0;
-                    cd SetupUtility;
-                    cd a;
-                    cd {subfolder};
-                    .\\setup.exe batch install enable-entry
-                '''
-    try:
-        subprocess.run(['powershell', '-Command', combined], capture_output=True, text=True, check=True)
-        messagebox.showinfo("完成", "開機底圖更換成功")
-    except subprocess.CalledProcessError as e:
-        messagebox.showinfo("錯誤", f"開機底圖設定失敗，請重試")
-
-
-def run_logo_nologo():
-    """左側隱藏按鈕：5 秒內連點 3 次 → NO LOGO"""
-    if _check_triple_click(_logo_click_times_left):
-        _run_logo_impl('NOLOGO', '更改開機畫面\nNO LOGO')
-
-
-def run_logo_default():
-    """右側隱藏按鈕：5 秒內連點 3 次 → default"""
-    if _check_triple_click(_logo_click_times_right):
-        _run_logo_impl('default', '更改開機畫面\ndefault')
 
 
 def addition_command():
@@ -716,10 +695,8 @@ def warning_font_color():
         if not warning_blink_enabled:
             return
         try:
-            current = warning_label_left.cget('fg')
-            new_color = 'red' if current != 'red' else 'blue'
-            warning_label_left.config(fg=new_color)
-            warning_label_right.config(fg=new_color)
+            current = warning_label.cget('fg')
+            warning_label.config(fg='red' if current != 'red' else 'blue')
         except Exception:
             pass
         finally:
@@ -896,7 +873,7 @@ def ensure_program_fw_rules(program_path: str):
 
 def create_gui():
     global root, progress_var, combo, start_button, end_button, entry, listbox, launch_photo_button
-    global warning_label_left, warning_label_right, stop_button
+    global warning_label, stop_button
     result, detail = addition_command()
     if result is False:
         return False, detail
@@ -920,6 +897,10 @@ def create_gui():
         formatted_names.append("安裝Connecter")
     if connecter_installed:
         formatted_names.append("解除安裝Connecter")
+    if os.path.exists('.\\0\\SetupUtility\\a\\NOLOGO'):
+        formatted_names.append("更改開機畫面 NO LOGO")
+    if os.path.exists('.\\0\\SetupUtility\\a\\default'):
+        formatted_names.append("更改開機畫面 default")
 
     label = tk.Label(root, text="請選擇執行項目:", font=font)
     label.pack(pady=10)
@@ -967,15 +948,8 @@ def create_gui():
     warning_frame = tk.Frame(root)
     warning_frame.pack(pady=5, padx=20, fill='x')
 
-    warning_label_left = tk.Button(warning_frame, text='執行完成會自動重新啓動', font=font,
-                                    bd=0, relief='flat', activebackground=warning_frame.cget('bg'),
-                                    cursor='arrow', command=run_logo_nologo)
-    warning_label_left.pack()
-
-    warning_label_right = tk.Button(warning_frame, text='請勿直接斷電', font=font,
-                                     bd=0, relief='flat', activebackground=warning_frame.cget('bg'),
-                                     cursor='arrow', command=run_logo_default)
-    warning_label_right.pack()
+    warning_label = tk.Label(warning_frame, text='執行完成會自動重新啓動\n請勿直接斷電', font=font)
+    warning_label.pack()
     warning_font_color()
 
     root.mainloop()
