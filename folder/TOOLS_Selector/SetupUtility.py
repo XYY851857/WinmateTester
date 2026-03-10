@@ -688,12 +688,22 @@ def start_copy(paths_dict):
         if src_folder:
             storage_card_folder = os.path.join(dst_base_folder, "Storage Card")
             storage_card2_folder = os.path.join(dst_base_folder, "Storage Card2")
-            clear_directory(storage_card_folder)
-            clear_directory(storage_card2_folder)
-            os.makedirs(storage_card_folder, exist_ok=True)
-            os.makedirs(storage_card2_folder, exist_ok=True)
 
-            threading.Thread(target=copy_tree_with_progress, args=(src_folder, storage_card_folder)).start()
+            def _clear_and_copy():
+                # 清除階段：顯示不定量進度條
+                root.after(0, lambda: progress_bar.config(mode='indeterminate'))
+                root.after(0, lambda: progress_bar.start(20))
+                clear_directory(storage_card_folder)
+                clear_directory(storage_card2_folder)
+                os.makedirs(storage_card_folder, exist_ok=True)
+                os.makedirs(storage_card2_folder, exist_ok=True)
+                # 切回定量進度條，開始複製
+                root.after(0, lambda: progress_bar.stop())
+                root.after(0, lambda: progress_bar.config(mode='determinate'))
+                root.after(0, lambda: progress_var.set(0))
+                copy_tree_with_progress(src_folder, storage_card_folder)
+
+            threading.Thread(target=_clear_and_copy).start()
 
 
 def close_app():
