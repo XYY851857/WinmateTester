@@ -56,11 +56,15 @@ def clear_directory(directory):
                 elif os.path.isdir(file_path):
                     shutil.rmtree(file_path)
             except PermissionError:
-                messagebox.showinfo("錯誤", f"{file_path}無法存取或刪除'")
-                unlock_button()
+                try:
+                    root.after(0, lambda fp=file_path: messagebox.showinfo("錯誤", f"{fp}無法存取或刪除"))
+                except Exception:
+                    pass
             except Exception as e:
-                messagebox.showinfo("錯誤", f"刪除{file_path}發生錯誤")
-                unlock_button()
+                try:
+                    root.after(0, lambda fp=file_path: messagebox.showinfo("錯誤", f"刪除{fp}發生錯誤"))
+                except Exception:
+                    pass
 
 
 def copy_tree_with_progress(src_folder, dst_folder):
@@ -689,15 +693,16 @@ def start_copy(paths_dict):
             storage_card_folder = os.path.join(dst_base_folder, "Storage Card")
             storage_card2_folder = os.path.join(dst_base_folder, "Storage Card2")
 
+            # 在主線程上啟動不定量進度條，確保立即顯示
+            progress_bar.config(mode='indeterminate')
+            progress_bar.start(20)
+
             def _clear_and_copy():
-                # 清除階段：顯示不定量進度條
-                root.after(0, lambda: progress_bar.config(mode='indeterminate'))
-                root.after(0, lambda: progress_bar.start(20))
                 clear_directory(storage_card_folder)
                 clear_directory(storage_card2_folder)
                 os.makedirs(storage_card_folder, exist_ok=True)
                 os.makedirs(storage_card2_folder, exist_ok=True)
-                # 切回定量進度條，開始複製
+                # 清除完成，切回定量進度條並開始複製
                 root.after(0, lambda: progress_bar.stop())
                 root.after(0, lambda: progress_bar.config(mode='determinate'))
                 root.after(0, lambda: progress_var.set(0))
