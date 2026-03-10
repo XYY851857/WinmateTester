@@ -517,11 +517,21 @@ def uninstall_connecter_process():
         pass
 
     try:
+        # 啟動不定量進度條
+        root.after(0, lambda: progress_bar.config(mode='indeterminate'))
+        root.after(0, lambda: progress_bar.start(20))
+
         if os.path.exists(dst):
             shutil.rmtree(dst)
+            root.after(0, lambda: progress_bar.stop())
+            root.after(0, lambda: progress_bar.config(mode='determinate'))
+            root.after(0, lambda: progress_var.set(100))
             update_button_color("green")
             messagebox.showinfo("完成", "Connecter 已解除安裝")
         else:
+            root.after(0, lambda: progress_bar.stop())
+            root.after(0, lambda: progress_bar.config(mode='determinate'))
+            root.after(0, lambda: progress_var.set(0))
             update_button_color("red")
             messagebox.showinfo("提示", "找不到 C:\\Connecter，可能已經解除安裝")
         try:
@@ -529,6 +539,9 @@ def uninstall_connecter_process():
         except Exception:
             pass
     except Exception as e:
+        root.after(0, lambda: progress_bar.stop())
+        root.after(0, lambda: progress_bar.config(mode='determinate'))
+        root.after(0, lambda: progress_var.set(0))
         update_button_color("red")
         messagebox.showerror("錯誤", f"解除安裝失敗: {e}")
     finally:
@@ -637,24 +650,34 @@ def start_copy(paths_dict):
         threading.Thread(target=uninstall_connecter_process).start()
     elif selected_option in ("更改開機畫面 NO LOGO", "更改開機畫面 default"):
         subfolder = 'NOLOGO' if 'NO LOGO' in selected_option else 'default'
-        prompt = '更改開機畫面\nNO LOGO' if subfolder == 'NOLOGO' else '更改開機畫面\ndefault'
-        if not messagebox.askokcancel("確認", prompt):
-            unlock_button()
-            return
-        combined = f'''
-                        cd 0;
-                        cd SetupUtility;
-                        cd a;
-                        cd {subfolder};
-                        .\\setup.exe batch install enable-entry
-                    '''
-        try:
-            subprocess.run(['powershell', '-Command', combined], capture_output=True, text=True, check=True)
-            messagebox.showinfo("完成", "開機底圖更換成功")
-            update_button_color("green")
-        except subprocess.CalledProcessError as e:
-            messagebox.showinfo("錯誤", f"開機底圖設定失敗，請重試")
-            update_button_color("red")
+
+        def _run_logo_change():
+            combined = f'''
+                            cd 0;
+                            cd SetupUtility;
+                            cd a;
+                            cd {subfolder};
+                            .\\setup.exe batch install enable-entry
+                        '''
+            try:
+                root.after(0, lambda: progress_bar.config(mode='indeterminate'))
+                root.after(0, lambda: progress_bar.start(20))
+
+                subprocess.run(['powershell', '-Command', combined], capture_output=True, text=True, check=True)
+
+                root.after(0, lambda: progress_bar.stop())
+                root.after(0, lambda: progress_bar.config(mode='determinate'))
+                root.after(0, lambda: progress_var.set(100))
+                messagebox.showinfo("完成", "開機底圖更換成功")
+                update_button_color("green")
+            except subprocess.CalledProcessError as e:
+                root.after(0, lambda: progress_bar.stop())
+                root.after(0, lambda: progress_bar.config(mode='determinate'))
+                root.after(0, lambda: progress_var.set(0))
+                messagebox.showinfo("錯誤", f"開機底圖設定失敗，請重試")
+                update_button_color("red")
+
+        threading.Thread(target=_run_logo_change, daemon=True).start()
     else:
         src_folder = paths_dict.get(selected_option)
         if src_folder:
@@ -872,7 +895,7 @@ def ensure_program_fw_rules(program_path: str):
 
 
 def create_gui():
-    global root, progress_var, combo, start_button, end_button, entry, listbox, launch_photo_button
+    global root, progress_var, progress_bar, combo, start_button, end_button, entry, listbox, launch_photo_button
     global warning_label, stop_button
     result, detail = addition_command()
     if result is False:
