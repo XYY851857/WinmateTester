@@ -29,13 +29,16 @@ COPY_WEBSERVER = True
 warning_blink_enabled = True
 
 
+import uuid
+
 def get_mac_address_by_name():
-    for interface, addrs in psutil.net_if_addrs().items():
-        if interface == "乙太網路 2":
-            for addr in addrs:
-                if addr.family == psutil.AF_LINK:  # AF_LINK 表示 MAC 地址
-                    return addr.address
-    return "Unknown"
+    try:
+        # 取得 MAC 位址的 48-bit 整數並格式化為 AA-BB-CC-DD-EE-FF
+        mac_num = uuid.getnode()
+        mac_hex = f'{mac_num:012x}'.upper()
+        return '-'.join(mac_hex[i:i+2] for i in range(0, 12, 2))
+    except Exception:
+        return "Unknown"
 
 
 def read_paths_from_file(file_path):

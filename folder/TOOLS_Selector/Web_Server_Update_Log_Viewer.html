@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Web Server Update Log Viewer</title>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -228,6 +229,8 @@
                     <span>📁 Open File</span>
                     <input type="file" id="fileInput" accept=".txt,.json">
                 </div>
+                <button id="exportBtn" class="btn" style="background-color: #10b981; display: none;">📊 Export
+                    Excel</button>
             </div>
         </header>
 
@@ -262,6 +265,7 @@
         const emptyState = document.getElementById('emptyState');
         const statsDiv = document.getElementById('stats');
         const dropZone = document.getElementById('drop-zone');
+        const exportBtn = document.getElementById('exportBtn');
         let currentSort = { column: null, direction: 'asc' };
 
         // File Loading
@@ -322,6 +326,7 @@
                     const json = JSON.parse(e.target.result);
                     parseLogData(json);
                     searchInput.disabled = false;
+                    exportBtn.style.display = 'inline-flex';
                     emptyState.style.display = 'none';
                 } catch (error) {
                     alert('Error parsing JSON: ' + error.message);
@@ -418,6 +423,47 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        exportBtn.addEventListener('click', exportToExcel);
+
+        function exportToExcel() {
+            if (!logData || logData.length === 0) {
+                alert("No data to export");
+                return;
+            }
+
+            // Prepare data for Excel
+            const exportData = logData.map(row => ({
+                "Model": row.model,
+                "MAC Address": row.mac,
+                "Installation Date": row.dates.join('\n') // Join dates with newline
+            }));
+
+            // Create worksheet
+            const ws = XLSX.utils.json_to_sheet(exportData);
+
+            // Adjust column widths
+            const wscols = [
+                { wch: 20 }, // Model
+                { wch: 20 }, // MAC
+                { wch: 30 }  // Date
+            ];
+            ws['!cols'] = wscols;
+
+            // Create workbook and append sheet
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Update Log");
+
+            // Generate filename with timestamp
+            const now = new Date();
+            const timestamp = now.getFullYear() +
+                String(now.getMonth() + 1).padStart(2, '0') +
+                String(now.getDate()).padStart(2, '0') + '_' +
+                String(now.getHours()).padStart(2, '0') +
+                String(now.getMinutes()).padStart(2, '0');
+
+            XLSX.writeFile(wb, `Web_Server_Update_Log_${timestamp}.xlsx`);
         }
     </script>
 </body>
