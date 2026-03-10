@@ -702,30 +702,40 @@ def close_app():
 
 # --- 重新啟動倒數計時 ---
 _restart_after_id = None
+_countdown_label = None
 
 
 def _do_restart():
-    """\u57f7\u884c\u91cd\u65b0\u555f\u52d5"""
+    """執行重新啟動"""
+    global _restart_after_id
+    _restart_after_id = None
     try:
         subprocess.Popen(['powershell', '-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden',
                           '-Command', 'shutdown /r /t 0'], creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     except Exception:
-        messagebox.showinfo("\u932f\u8aa4", "\u91cd\u65b0\u555f\u52d5\u57f7\u884c\u932f\u8aa4\uff0c\u8acb\u5f9e\u7cfb\u7d71\u5de6\u4e0b\u89d2\u624b\u52d5\u9ede\u64ca\u95dc\u6a5f")
+        messagebox.showinfo("錯誤", "重新啟動執行錯誤，請從系統左下角手動點擊關機")
     root.destroy()
 
 
 def enable_restart_countdown(seconds=30):
-    """\u5c07\u300c\u7d50\u675f\u7a0b\u5e8f\u300d\u6309\u9215\u8b8a\u66f4\u70ba\u300c\u91cd\u65b0\u555f\u52d5\u300d\u4e26\u958b\u59cb\u5012\u6578"""
-    global _restart_after_id
+    """將「結束程序」按鈕變更為「重新啟動」並開始倒數"""
+    global _restart_after_id, _countdown_label
 
-    # \u53d6\u6d88\u4e4b\u524d\u7684\u5012\u6578\uff08\u82e5\u6709\uff09
+    # 取消之前的倒數（若有）
     if _restart_after_id is not None:
         try:
             root.after_cancel(_restart_after_id)
         except Exception:
             pass
+        _restart_after_id = None
 
-    end_button.config(command=_do_restart)
+    end_button.config(text="重新啟動", command=_do_restart)
+
+    # 建立或更新倒數提示 Label（小字）
+    if _countdown_label is None:
+        _countdown_label = tk.Label(root, text="", font=("Arial", 10))
+        _countdown_label.pack(after=end_button.master, pady=0)
+
     remaining = [seconds]
 
     def _tick():
@@ -733,7 +743,10 @@ def enable_restart_countdown(seconds=30):
         if remaining[0] <= 0:
             _do_restart()
             return
-        end_button.config(text=f"\u91cd\u65b0\u555f\u52d5\n{remaining[0]}\u79d2\u7121\u52d5\u4f5c\u5c07\u81ea\u52d5\u91cd\u65b0\u555f\u52d5")
+        try:
+            _countdown_label.config(text=f"{remaining[0]}秒無動作將自動重新啟動")
+        except Exception:
+            pass
         remaining[0] -= 1
         _restart_after_id = root.after(1000, _tick)
 
@@ -742,7 +755,7 @@ def enable_restart_countdown(seconds=30):
 
 def stop_restart_countdown():
     """停止倒數計時並將按鈕恢復為「結束程序」"""
-    global _restart_after_id
+    global _restart_after_id, _countdown_label
     if _restart_after_id is not None:
         try:
             root.after_cancel(_restart_after_id)
@@ -753,6 +766,11 @@ def stop_restart_countdown():
         end_button.config(text="結束程序", command=close_app)
     except Exception:
         pass
+    if _countdown_label is not None:
+        try:
+            _countdown_label.config(text="")
+        except Exception:
+            pass
 
 
 
