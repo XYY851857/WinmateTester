@@ -304,6 +304,11 @@ def copy_tree_with_progress(src_folder, dst_folder):
             return
         S_index = selected_option.index('S')
         messagebox.showinfo("完成", f"{selected_option[S_index:]}已複製到 C:\\Storage Card")
+        # 標記清單項目為成功（綠底）
+        try:
+            root.after(0, mark_option_success)
+        except Exception:
+            pass
         # 啟動 30 秒重新啟動倒數計時
         try:
             root.after(0, enable_restart_countdown)
@@ -436,6 +441,10 @@ def install_connecter_process():
                     pass
 
         update_button_color("green")
+        try:
+            root.after(0, mark_option_success)
+        except Exception:
+            pass
 
         # 安裝完成後先更新選項（會依 C:\\Connecter 是否存在決定是否顯示「解除安裝Connecter」）
         try:
@@ -538,6 +547,7 @@ def uninstall_connecter_process():
             root.after(0, lambda: progress_bar.config(mode='determinate'))
             root.after(0, lambda: progress_var.set(100))
             update_button_color("green")
+            root.after(0, mark_option_success)
             messagebox.showinfo("完成", "Connecter 已解除安裝")
         else:
             root.after(0, lambda: progress_bar.stop())
@@ -605,6 +615,16 @@ def _has_existing_files():
     return False
 
 
+def mark_option_success():
+    """將選單中剛剛成功執行的項目底色改為綠色"""
+    global selected_index
+    try:
+        if selected_index is not None:
+            listbox.itemconfig(selected_index, {'bg': 'lightgreen', 'fg': 'black'})
+    except Exception:
+        pass
+
+
 def start_copy(paths_dict):
     lock_button()
     abort_event.clear()
@@ -613,10 +633,11 @@ def start_copy(paths_dict):
     except Exception:
         pass
     try:
-        global selected_option
-        selected_option = listbox.get(listbox.curselection())
+        global selected_option, selected_index
+        selected_index = listbox.curselection()[0]
+        selected_option = listbox.get(selected_index)
         dst_base_folder = 'C:\\'
-    except tk.TclError:
+    except (tk.TclError, IndexError):
         messagebox.showwarning("錯誤", "請選擇一個選項")
         unlock_button()
         return
@@ -652,6 +673,7 @@ def start_copy(paths_dict):
         os.makedirs(storage_card2_folder, exist_ok=True)
         messagebox.showinfo("完成", f"Card, Card2 已清除")
         update_button_color("green")
+        root.after(0, mark_option_success)
         # 新增清除 C:\Connecter
         connecter_dst_folder = 'C:\\Connecter'
         if os.path.exists(connecter_dst_folder):
@@ -690,6 +712,7 @@ def start_copy(paths_dict):
                 root.after(0, lambda: progress_var.set(100))
                 messagebox.showinfo("完成", "開機底圖更換成功")
                 update_button_color("green")
+                root.after(0, mark_option_success)
                 root.after(0, enable_restart_countdown)
             except subprocess.CalledProcessError as e:
                 root.after(0, lambda: progress_bar.stop())
