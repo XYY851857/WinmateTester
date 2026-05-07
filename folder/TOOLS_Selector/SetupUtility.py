@@ -49,9 +49,11 @@ def read_paths_from_file(file_path):
     return folder_names, paths
 
 
-def clear_directory(directory):
+def clear_directory(directory, keep_parame=False):
     if os.path.exists(directory):
         for filename in os.listdir(directory):
+            if keep_parame and filename in ("PARAME", "Parameter"):
+                continue
             file_path = os.path.join(directory, filename)
             try:
                 if os.path.isfile(file_path) or os.path.islink(file_path):
@@ -81,6 +83,11 @@ def copy_tree_with_progress(src_folder, dst_folder):
         (r'.\\0\\SetupUtility\\data\\WebServer\\HackTimer.js',               r'C:\\Windows\\www\\wwwpub'),
         (r'.\\0\\SetupUtility\\data\\WebServer\\terchy.html',                r'C:\\Windows\\www\\wwwpub'),
     ]
+    if 'install_ipps_var' in globals() and install_ipps_var.get():
+        extra_copies.extend([
+            (r'.\\0\\SetupUtility\\data\\IPPS\\IP_Provisioning_System_Client.exe', r'C:\\IPPS'),
+            (r'.\\0\\SetupUtility\\data\\IPPS\\client_config.json', r'C:\\IPPS'),
+        ])
     # 僅當啟用時才把附加檔案計入總數
     if COPY_WEBSERVER:
         extra_existing = [src for src, _ in extra_copies if os.path.isfile(src)]
@@ -161,6 +168,14 @@ def copy_tree_with_progress(src_folder, dst_folder):
 
     try:
         for dirpath, dirnames, filenames in os.walk(src_folder):
+            if 'keep_parame_var' in globals() and keep_parame_var.get():
+                if os.path.relpath(dirpath, src_folder) == '.':
+                    if "PARAME" in dirnames:
+                        dirnames.remove("PARAME")
+                    if "Parameter" in dirnames:
+                        dirnames.remove("Parameter")
+                    filenames = [f for f in filenames if f not in ("PARAME", "Parameter")]
+
             dst_dirpath = os.path.join(dst_folder, os.path.relpath(dirpath, src_folder))
             os.makedirs(dst_dirpath, exist_ok=True)
             if abort_event.is_set():
@@ -667,8 +682,9 @@ def start_copy(paths_dict):
     if selected_option == "清除Card1, Card2":
         storage_card_folder = os.path.join(dst_base_folder, "Storage Card")
         storage_card2_folder = os.path.join(dst_base_folder, "Storage Card2")
-        clear_directory(storage_card_folder)
-        clear_directory(storage_card2_folder)
+        keep = keep_parame_var.get() if 'keep_parame_var' in globals() else False
+        clear_directory(storage_card_folder, keep_parame=keep)
+        clear_directory(storage_card2_folder, keep_parame=keep)
         os.makedirs(storage_card_folder, exist_ok=True)
         os.makedirs(storage_card2_folder, exist_ok=True)
         messagebox.showinfo("完成", f"Card, Card2 已清除")
@@ -734,8 +750,9 @@ def start_copy(paths_dict):
             root.update()  # 強制刷新，確保進度條動畫立即顯示
 
             def _clear_and_copy():
-                clear_directory(storage_card_folder)
-                clear_directory(storage_card2_folder)
+                keep = keep_parame_var.get() if 'keep_parame_var' in globals() else False
+                clear_directory(storage_card_folder, keep_parame=keep)
+                clear_directory(storage_card2_folder, keep_parame=keep)
                 os.makedirs(storage_card_folder, exist_ok=True)
                 os.makedirs(storage_card2_folder, exist_ok=True)
                 # 清除完成，切回定量進度條並開始複製
@@ -1029,10 +1046,22 @@ def create_gui():
     result, detail = addition_command()
     if result is False:
         return False, detail
+    global install_ipps_var, keep_parame_var
     root = tk.Tk()
     root.title("SetupUtility")
     root.attributes('-fullscreen', True)
     font = ('Arial', 20)
+
+    install_ipps_var = tk.BooleanVar(value=True)
+    keep_parame_var = tk.BooleanVar(value=False)
+
+    top_frame = tk.Frame(root)
+    top_frame.pack(fill='x', side='top', pady=10, padx=20)
+    
+    keep_parame_cb = tk.Checkbutton(top_frame, text="保留PARAME", variable=keep_parame_var, font=font)
+    keep_parame_cb.pack(side='left')
+    
+    install_ipps_cb = tk.Checkbutton(top_frame, text="安裝IPPS", variable=install_ipps_var, font=font)
 
     folder_names, paths = read_paths_from_file(".\\0\\SetupUtility\\data\\path.txt")
 
@@ -1069,8 +1098,15 @@ def create_gui():
 
     def on_select(event):
         entry.delete(0, tk.END)
-        selection = listbox.get(listbox.curselection())
+        try:
+            selection = listbox.get(listbox.curselection())
+        except tk.TclError:
+            return
         entry.insert(0, selection)
+        if selection in paths_dict:
+            install_ipps_cb.pack(side='right')
+        else:
+            install_ipps_cb.pack_forget()
 
     listbox.bind('<ButtonRelease-1>', on_select)
 
