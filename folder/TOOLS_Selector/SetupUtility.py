@@ -328,16 +328,16 @@ def copy_tree_with_progress(src_folder, dst_folder):
             unlock_button()
             messagebox.showinfo("已終止", "已停止關機動作")
             return
+        # 啟動 10 秒重新啟動倒數計時
+        try:
+            root.after(0, enable_restart_countdown)
+        except Exception:
+            pass
         S_index = selected_option.index('S')
         messagebox.showinfo("完成", f"{selected_option[S_index:]}已複製到 C:\\Storage Card")
         # 標記清單項目為成功（綠底）
         try:
             root.after(0, mark_option_success)
-        except Exception:
-            pass
-        # 啟動 30 秒重新啟動倒數計時
-        try:
-            root.after(0, enable_restart_countdown)
         except Exception:
             pass
         # option = selected_var.get()
@@ -698,6 +698,7 @@ def start_copy(paths_dict):
         clear_directory(storage_card2_folder, keep_parame=keep)
         os.makedirs(storage_card_folder, exist_ok=True)
         os.makedirs(storage_card2_folder, exist_ok=True)
+        enable_restart_countdown()
         messagebox.showinfo("完成", f"Card, Card2 已清除")
         update_button_color("green")
         root.after(0, mark_option_success)
@@ -712,7 +713,6 @@ def start_copy(paths_dict):
             update_connecter_options()
         except Exception:
             pass
-        enable_restart_countdown()
     elif selected_option == "安裝Connecter":
         threading.Thread(target=install_connecter_process).start()
     elif selected_option == "解除安裝Connecter":
@@ -737,10 +737,10 @@ def start_copy(paths_dict):
                 root.after(0, lambda: progress_bar.stop())
                 root.after(0, lambda: progress_bar.config(mode='determinate'))
                 root.after(0, lambda: progress_var.set(100))
+                root.after(0, enable_restart_countdown)
                 messagebox.showinfo("完成", "開機底圖更換成功")
                 update_button_color("green")
                 root.after(0, mark_option_success)
-                root.after(0, enable_restart_countdown)
             except subprocess.CalledProcessError as e:
                 root.after(0, lambda: progress_bar.stop())
                 root.after(0, lambda: progress_bar.config(mode='determinate'))
@@ -796,7 +796,7 @@ def _do_restart():
     root.destroy()
 
 
-def enable_restart_countdown(seconds=30):
+def enable_restart_countdown(seconds=20):
     """將「結束程序」按鈕變更為「重新啟動」並開始倒數"""
     global _restart_after_id, _countdown_label
 
