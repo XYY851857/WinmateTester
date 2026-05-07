@@ -1061,7 +1061,8 @@ def create_gui():
     top_frame = tk.Frame(root)
     top_frame.pack(fill='x', side='top', pady=10, padx=20)
     
-    keep_parame_cb = tk.Checkbutton(top_frame, text="保留PARAME、GRP、PRG", variable=keep_parame_var, font=font)
+    small_font = ('Arial', 14)
+    keep_parame_cb = tk.Checkbutton(top_frame, text="保留PARAME、GRP、PRG", variable=keep_parame_var, font=small_font)
     keep_parame_cb.pack(side='left')
     
     label = tk.Label(top_frame, text="請選擇執行項目:", font=font)
