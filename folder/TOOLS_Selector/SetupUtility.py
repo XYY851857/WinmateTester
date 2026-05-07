@@ -236,7 +236,15 @@ def copy_tree_with_progress(src_folder, dst_folder):
             verify_log_path = None
 
         verify_errors = []
-        for dirpath, _, filenames in os.walk(src_folder):
+        for dirpath, dirnames, filenames in os.walk(src_folder):
+            if 'keep_parame_var' in globals() and keep_parame_var.get():
+                if os.path.relpath(dirpath, src_folder) == '.':
+                    if "PARAME" in dirnames:
+                        dirnames.remove("PARAME")
+                    if "Parameter" in dirnames:
+                        dirnames.remove("Parameter")
+                    filenames = [f for f in filenames if f not in ("PARAME", "Parameter")]
+
             rel_dir = os.path.relpath(dirpath, src_folder)
             dst_dir = os.path.join(dst_folder, rel_dir)
             for filename in filenames:
