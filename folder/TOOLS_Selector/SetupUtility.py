@@ -52,8 +52,11 @@ def read_paths_from_file(file_path):
 def clear_directory(directory, keep_parame=False):
     if os.path.exists(directory):
         for filename in os.listdir(directory):
-            if keep_parame and filename in ("PARAME", "Parameter"):
-                continue
+            if keep_parame:
+                if filename in ("PARAME", "Parameter"):
+                    continue
+                if directory.lower().endswith("storage card2") and filename.lower() in ("graphic", "program"):
+                    continue
             file_path = os.path.join(directory, filename)
             try:
                 if os.path.isfile(file_path) or os.path.islink(file_path):
@@ -1058,8 +1061,11 @@ def create_gui():
     top_frame = tk.Frame(root)
     top_frame.pack(fill='x', side='top', pady=10, padx=20)
     
-    keep_parame_cb = tk.Checkbutton(top_frame, text="保留PARAME", variable=keep_parame_var, font=font)
+    keep_parame_cb = tk.Checkbutton(top_frame, text="保留PARAME、GRP、PRG", variable=keep_parame_var, font=font)
     keep_parame_cb.pack(side='left')
+    
+    label = tk.Label(top_frame, text="請選擇執行項目:", font=font)
+    label.pack(side='left', expand=True)
     
     install_ipps_cb = tk.Checkbutton(top_frame, text="安裝IPPS", variable=install_ipps_var, font=font)
 
@@ -1083,8 +1089,7 @@ def create_gui():
     if os.path.exists('.\\0\\SetupUtility\\a\\default'):
         formatted_names.append("更改開機畫面 default")
 
-    label = tk.Label(root, text="請選擇執行項目:", font=font)
-    label.pack(pady=10)
+    # label is now in top_frame
 
     entry = tk.Entry(root, font=font, width=0)
     entry.forget()
