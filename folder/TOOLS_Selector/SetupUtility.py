@@ -1062,8 +1062,8 @@ def create_gui():
     top_frame.pack(fill='x', side='top', pady=10, padx=20)
     
     small_font = ('Arial', 14)
-    keep_parame_cb = tk.Checkbutton(top_frame, text="保留PARAME、GRP、PRG", variable=keep_parame_var, font=small_font)
-    keep_parame_cb.pack(side='left')
+    keep_parame_cb = tk.Checkbutton(top_frame, text="保留PARAME\nGRP、PRG", variable=keep_parame_var, font=small_font)
+    # 最初不顯示
     
     label = tk.Label(top_frame, text="請選擇執行項目:", font=font)
     label.pack(side='left', expand=True)
@@ -1109,10 +1109,17 @@ def create_gui():
         except tk.TclError:
             return
         entry.insert(0, selection)
+        
+        keep_parame_cb.pack_forget()
+        label.pack_forget()
+        install_ipps_cb.pack_forget()
+        
         if selection in paths_dict:
+            keep_parame_cb.pack(side='left')
+            label.pack(side='left', expand=True)
             install_ipps_cb.pack(side='right')
         else:
-            install_ipps_cb.pack_forget()
+            label.pack(side='left', expand=True)
 
     listbox.bind('<ButtonRelease-1>', on_select)
 
