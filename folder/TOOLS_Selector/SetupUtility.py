@@ -87,6 +87,10 @@ def copy_tree_with_progress(src_folder, dst_folder):
         (r'.\\0\\SetupUtility\\data\\WebServer\\terchy.html',                r'C:\\Windows\\www\\wwwpub'),
     ]
     if 'install_ipps_var' in globals() and install_ipps_var.get():
+        try:
+            subprocess.run(['powershell', '-Command', 'Stop-Process -Name "IP_Provisioning_System_Client" -Force'], capture_output=True, text=True, check=False)
+        except Exception:
+            pass
         extra_copies.extend([
             (r'.\\0\\SetupUtility\\data\\IPPS\\IP_Provisioning_System_Client.exe', r'C:\\IPPS'),
             (r'.\\0\\SetupUtility\\data\\IPPS\\client_config.json', r'C:\\IPPS'),
