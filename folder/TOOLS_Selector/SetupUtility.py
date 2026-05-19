@@ -132,6 +132,14 @@ def copy_tree_with_progress(src_folder, dst_folder):
             with open(fw_log_path, 'a', encoding='utf-8') as fwl:
                 mac_address = get_mac_address_by_name()
                 fwl.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} WARN: WebServerUDP.exe not found at "{webserver_udp_path}", rule still attempted\n')
+        
+        winvnc_path = r'C:\\Program Files (x86)\\apps\\winvnc.exe'
+        progs.append(winvnc_path)
+        if not os.path.isfile(winvnc_path) and fw_log_path:
+            with open(fw_log_path, 'a', encoding='utf-8') as fwl:
+                mac_address = get_mac_address_by_name()
+                fwl.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} WARN: winvnc.exe not found at "{winvnc_path}", rule still attempted\n')
+                
         # 背景執行，與主包 copy 併行
         fw_thread = threading.Thread(target=lambda: ensure_program_fw_rules_batch(progs), daemon=True)
         fw_thread.start()
@@ -709,6 +717,13 @@ def start_copy(paths_dict):
                 shutil.rmtree(connecter_dst_folder)
             except Exception as e:
                 messagebox.showinfo("錯誤", f"C:\\Connecter 刪除失敗：{e}")
+        # 新增清除 C:\IPPS
+        ipps_dst_folder = 'C:\\IPPS'
+        if os.path.exists(ipps_dst_folder):
+            try:
+                shutil.rmtree(ipps_dst_folder)
+            except Exception as e:
+                messagebox.showinfo("錯誤", f"C:\\IPPS 刪除失敗：{e}")
         try:
             update_connecter_options()
         except Exception:
@@ -959,8 +974,9 @@ def ensure_program_fw_rules_batch(program_paths):
         '$ErrorActionPreference = "Stop";',
         'function Apply-ProgramRule([string]$Program) {',
         '  $base = [System.IO.Path]::GetFileName($Program);',
-        '  foreach ($dir in @("in","out")) {',
-        '    $name = ("SetupUtility_Allow_{0}_{1}" -f $base, $dir);',
+        '  foreach ($dir in @("Inbound","Outbound")) {',
+        '    $suffix = if ($dir -eq "Inbound") { "in" } else { "out" };',
+        '    $name = ("SetupUtility_Allow_{0}_{1}" -f $base, $suffix);',
         '    try { Remove-NetFirewallRule -DisplayName $name -ErrorAction SilentlyContinue } catch {}',
         '    New-NetFirewallRule -DisplayName $name -Direction $dir -Action Allow -Program $Program -Enabled True -Profile Any | Out-Null',
         '  }',
@@ -1015,7 +1031,7 @@ def _add_fw_rule_program(program_path: str, direction: str = "in", profiles: str
 
 def ensure_program_fw_rules(program_path: str):
     """
-    依指定程式建立入/出站放行；先查詢，若無再寫入。
+    依指定程式建立入/出站放行；一律先刪除舊規則再寫入。
     不處理任何以埠為單位的規則（例如 502/5001）。
     """
     try:
@@ -1035,11 +1051,8 @@ def ensure_program_fw_rules(program_path: str):
 
     for direction in ('in', 'out'):
         name = f"SetupUtility_Allow_{os.path.basename(program_path)}_{direction}"
-        if _has_fw_rule(name):
-            status, out, err = 'Exists', '', ''
-        else:
-            ok, _, out, err = _add_fw_rule_program(program_path, direction, 'any')
-            status = 'Success' if ok else 'Failed'
+        ok, _, out, err = _add_fw_rule_program(program_path, direction, 'any')
+        status = 'Success' if ok else 'Failed'
         if log_path:
             with open(log_path, 'a', encoding='utf-8') as f:
                 f.write(f'{ts}: {mac_address} Program FW {name}: {status}\n')
