@@ -126,14 +126,14 @@ def copy_tree_with_progress(src_folder, dst_folder):
                 with open(fw_log_path, 'a', encoding='utf-8') as fwl:
                     mac_address = get_mac_address_by_name()
                     fwl.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} WARN: cannot derive program name from selection "{selected_option}"\n')
-        webserver_udp_path = r'C:\\Storage Card\\WebServerUDP.exe'
+        webserver_udp_path = r'C:\Storage Card\WebServerUDP.exe'
         progs.append(webserver_udp_path)
         if not os.path.isfile(webserver_udp_path) and fw_log_path:
             with open(fw_log_path, 'a', encoding='utf-8') as fwl:
                 mac_address = get_mac_address_by_name()
                 fwl.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} WARN: WebServerUDP.exe not found at "{webserver_udp_path}", rule still attempted\n')
         
-        winvnc_path = r'C:\\Program Files (x86)\\apps\\winvnc.exe'
+        winvnc_path = r'C:\Program Files (x86)\apps\winvnc.exe'
         progs.append(winvnc_path)
         if not os.path.isfile(winvnc_path) and fw_log_path:
             with open(fw_log_path, 'a', encoding='utf-8') as fwl:
