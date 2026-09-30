@@ -41,6 +41,202 @@ def get_mac_address_by_name():
         return "Unknown"
 
 
+def _flush_log(msg):
+    try:
+        os.makedirs('.\\log', exist_ok=True)
+        with open('.\\log\\SetupUtility_FLUSH_log.txt', 'a', encoding='utf-8') as lf:
+            lf.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {get_mac_address_by_name()} {msg}\n')
+    except Exception:
+        pass
+
+
+def _flush_volume_path(volume_path):
+    """將磁碟區（\\\\.\\C: 或 \\\\?\\Volume{GUID}）的快取（檔案內容 + 檔案系統中繼資料）強制寫入磁碟；需系統管理員權限"""
+    GENERIC_READ = 0x80000000
+    GENERIC_WRITE = 0x40000000
+    FILE_SHARE_READ = 0x1
+    FILE_SHARE_WRITE = 0x2
+    OPEN_EXISTING = 3
+    k32 = ctypes.WinDLL('kernel32', use_last_error=True)
+    k32.CreateFileW.restype = ctypes.c_void_p
+    k32.CreateFileW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p,
+                                ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p]
+    k32.FlushFileBuffers.restype = ctypes.c_int
+    k32.FlushFileBuffers.argtypes = [ctypes.c_void_p]
+    k32.CloseHandle.argtypes = [ctypes.c_void_p]
+    h = k32.CreateFileW(volume_path, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                        None, OPEN_EXISTING, 0, None)
+    if h is None or h == ctypes.c_void_p(-1).value:
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        if not k32.FlushFileBuffers(h):
+            raise ctypes.WinError(ctypes.get_last_error())
+    finally:
+        k32.CloseHandle(h)
+
+
+def flush_volume(drive='C:'):
+    _flush_volume_path(f'\\\\.\\{drive}')
+
+
+def flush_all_volumes():
+    """強制寫入系統上所有磁碟區（含無磁碟代號的 EFI 系統分割區）；回傳是否全部成功（無法開啟的磁碟區僅記錄略過）"""
+    k32 = ctypes.WinDLL('kernel32', use_last_error=True)
+    k32.FindFirstVolumeW.restype = ctypes.c_void_p
+    k32.FindFirstVolumeW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint32]
+    k32.FindNextVolumeW.restype = ctypes.c_int
+    k32.FindNextVolumeW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_uint32]
+    k32.FindVolumeClose.argtypes = [ctypes.c_void_p]
+    buf = ctypes.create_unicode_buffer(260)
+    h = k32.FindFirstVolumeW(buf, len(buf))
+    if h is None or h == ctypes.c_void_p(-1).value:
+        _flush_log(f'FAIL: FindFirstVolumeW: {ctypes.WinError(ctypes.get_last_error())}')
+        return False
+    ok = True
+    try:
+        while True:
+            # FindFirstVolumeW 回傳 \\?\Volume{GUID}\，開啟磁碟區 handle 時需去掉結尾反斜線
+            vol = buf.value.rstrip('\\')
+            try:
+                _flush_volume_path(vol)
+                _flush_log(f'OK: volume {vol} flushed')
+            except OSError as e:
+                # 1=不支援、19=防寫、21=裝置未就緒（空的讀卡機/光碟機）：不影響判定；5=拒絕存取（非管理員）視為失敗
+                if getattr(e, 'winerror', None) in (1, 19, 21):
+                    _flush_log(f'SKIP: volume {vol}: {e}')
+                else:
+                    ok = False
+                    _flush_log(f'FAIL: volume {vol}: {e}')
+            if not k32.FindNextVolumeW(h, buf, len(buf)):
+                break
+    finally:
+        k32.FindVolumeClose(h)
+    return ok
+
+
+def flush_registry(subkey=r'SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy'):
+    """強制將登錄檔 hive（預設 SYSTEM，防火牆規則所在）寫入磁碟"""
+    import winreg
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, subkey, 0, winreg.KEY_READ) as k:
+            winreg.FlushKey(k)
+        _flush_log(f'OK: registry HKLM\\{subkey} flushed')
+        return True
+    except Exception as e:
+        _flush_log(f'FAIL: registry HKLM\\{subkey} flush: {e}')
+        return False
+
+
+def _fsync_paths(paths):
+    """備援：逐檔 fsync（無法開啟磁碟區時使用）；回傳失敗數"""
+    failures = 0
+    files = []
+    for p in paths:
+        if os.path.isfile(p):
+            files.append(p)
+        elif os.path.isdir(p):
+            for dirpath, _, filenames in os.walk(p):
+                files.extend(os.path.join(dirpath, f) for f in filenames)
+    for f in files:
+        try:
+            with open(f, 'r+b') as fh:
+                os.fsync(fh.fileno())
+        except Exception as e:
+            failures += 1
+            _flush_log(f'FSYNC_FAIL: {f}: {e}')
+    return failures
+
+
+def flush_to_disk(paths, drive='C:'):
+    """確保資料已實際寫入磁碟，避免過早斷電造成檔案不完整；回傳是否成功"""
+    try:
+        flush_volume(drive)
+        _flush_log(f'OK: volume {drive} flushed')
+        return True
+    except Exception as e:
+        _flush_log(f'WARN: volume {drive} flush failed ({e}), fallback to per-file fsync')
+    if not paths:
+        # 刪除類操作（僅中繼資料）無逐檔備援可用
+        _flush_log('FAIL: no per-file fallback available')
+        return False
+    failures = _fsync_paths(paths)
+    _flush_log(f'{"OK" if failures == 0 else "FAIL"}: per-file fsync done, failures={failures}')
+    return failures == 0
+
+
+def flush_to_disk_with_ui(paths, drive='C:'):
+    """寫入磁碟期間顯示「請勿斷電」並切換不定量進度條；可於主線程或背景執行緒呼叫"""
+    def _begin():
+        try:
+            start_button.config(text="寫入磁碟中，請勿斷電...")
+            progress_bar.config(mode='indeterminate')
+            progress_bar.start(20)
+        except Exception:
+            pass
+
+    def _end():
+        try:
+            progress_bar.stop()
+            progress_bar.config(mode='determinate')
+            progress_var.set(100)
+            start_button.config(text="開始執行")
+        except Exception:
+            pass
+
+    on_main = threading.current_thread() is threading.main_thread()
+    if on_main:
+        _begin()
+        try:
+            root.update_idletasks()
+        except Exception:
+            pass
+    else:
+        root.after(0, _begin)
+    ok = flush_to_disk(paths, drive)
+    if on_main:
+        _end()
+    else:
+        root.after(0, _end)
+    if not ok:
+        messagebox.showwarning("警告", "資料寫入磁碟未完全確認，請勿直接斷電，請使用「重新啟動」")
+    return ok
+
+
+def ensure_admin():
+    """未以系統管理員身分執行時，自動以 runas 重新啟動自己（保留原工作目錄）；回傳 True 表示本程序應繼續執行"""
+    import sys
+    # 提權後的子程序：還原工作目錄（程式大量使用相對路徑 .\\0\\...、.\\log）
+    for arg in sys.argv[1:]:
+        if arg.startswith('--cwd='):
+            try:
+                os.chdir(arg[len('--cwd='):])
+            except Exception:
+                pass
+    if _is_admin():
+        return True
+    if '--elevated' in sys.argv:
+        # 已嘗試過提權仍非管理員，避免無限重啟
+        _flush_log('WARN: still not admin after elevation, continue without admin')
+        return True
+    cwd = os.getcwd()
+    if getattr(sys, 'frozen', False):
+        args = sys.argv[1:]
+    else:
+        args = [os.path.abspath(sys.argv[0])] + sys.argv[1:]
+    args = [a for a in args if not a.startswith('--cwd=')] + ['--elevated', f'--cwd={cwd}']
+    try:
+        ret = ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable,
+                                                  subprocess.list2cmdline(args), cwd, 1)
+    except Exception as e:
+        ret = 0
+        _flush_log(f'WARN: elevation error: {e}')
+    if ret > 32:
+        return False
+    # 使用者拒絕 UAC 或提權失敗：以一般權限繼續，寫入磁碟時會改用逐檔 fsync
+    _flush_log(f'WARN: elevation declined/failed (code={ret}), continue without admin')
+    return True
+
+
 def read_paths_from_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
         paths = [line.strip() for line in f if line.strip()]
@@ -327,9 +523,19 @@ def copy_tree_with_progress(src_folder, dst_folder):
         # 等待防火牆背景任務（若仍在執行），避免重開機時規則未套完
         try:
             if fw_thread and fw_thread.is_alive():
-                fw_thread.join(timeout=15)
+                fw_thread.join(timeout=60)
+            if fw_thread and fw_thread.is_alive() and fw_log_path:
+                with open(fw_log_path, 'a', encoding='utf-8') as fwl:
+                    fwl.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {get_mac_address_by_name()} WARN: firewall task still running after 60s\n')
         except Exception:
             pass
+        # 強制將所有複製結果寫入磁碟後才回報完成，避免過早斷電造成檔案不完整
+        flush_paths = [dst_folder, 'C:\\Storage Card2']
+        if COPY_CONNECTER:
+            flush_paths.append('C:\\Connecter')
+        if COPY_WEBSERVER:
+            flush_paths.extend(os.path.join(d, os.path.basename(s)) for s, d in extra_copies)
+        flush_to_disk_with_ui(flush_paths)
         update_button_color("green")
         if abort_event.is_set():
             # 使用者在準備關機階段按下中止
@@ -410,6 +616,7 @@ def abort_install():
             with open(abort_log, 'a', encoding='utf-8') as lf:
                 mac_address = get_mac_address_by_name()
                 lf.write(f'{datetime.now().strftime("%Y%m%d:%H%M%S")}: {mac_address} Copied AutoRun.vbs -> {dst_path}\n')
+        flush_to_disk([dst_path])
     except Exception as e:
         if abort_log:
             with open(abort_log, 'a', encoding='utf-8') as lf:
@@ -474,6 +681,7 @@ def install_connecter_process():
                 except:
                     pass
 
+        flush_to_disk_with_ui([dst])
         update_button_color("green")
         try:
             root.after(0, mark_option_success)
@@ -577,6 +785,7 @@ def uninstall_connecter_process():
 
         if os.path.exists(dst):
             shutil.rmtree(dst)
+            flush_to_disk([])
             root.after(0, lambda: progress_bar.stop())
             root.after(0, lambda: progress_bar.config(mode='determinate'))
             root.after(0, lambda: progress_var.set(100))
@@ -706,10 +915,6 @@ def start_copy(paths_dict):
         clear_directory(storage_card2_folder, keep_parame=keep)
         os.makedirs(storage_card_folder, exist_ok=True)
         os.makedirs(storage_card2_folder, exist_ok=True)
-        enable_restart_countdown()
-        messagebox.showinfo("完成", f"Card, Card2 已清除")
-        update_button_color("green")
-        root.after(0, mark_option_success)
         # 新增清除 C:\Connecter
         connecter_dst_folder = 'C:\\Connecter'
         if os.path.exists(connecter_dst_folder):
@@ -724,6 +929,12 @@ def start_copy(paths_dict):
                 shutil.rmtree(ipps_dst_folder)
             except Exception as e:
                 messagebox.showinfo("錯誤", f"C:\\IPPS 刪除失敗：{e}")
+        # 刪除結果（NTFS 中繼資料）寫入磁碟後才回報完成
+        flush_to_disk_with_ui([storage_card_folder, storage_card2_folder])
+        enable_restart_countdown()
+        messagebox.showinfo("完成", f"Card, Card2 已清除")
+        update_button_color("green")
+        root.after(0, mark_option_success)
         try:
             update_connecter_options()
         except Exception:
@@ -748,6 +959,9 @@ def start_copy(paths_dict):
                 root.after(0, lambda: progress_bar.start(20))
 
                 subprocess.run(['powershell', '-Command', combined], capture_output=True, text=True, check=True)
+                # 開機畫面寫在 EFI 系統分割區（FAT32、無磁碟代號），需 flush 所有磁碟區
+                if not flush_all_volumes():
+                    messagebox.showwarning("警告", "開機畫面寫入磁碟未完全確認，請勿直接斷電，請使用「重新啟動」")
 
                 root.after(0, lambda: progress_bar.stop())
                 root.after(0, lambda: progress_bar.config(mode='determinate'))
@@ -990,6 +1204,8 @@ def ensure_program_fw_rules_batch(program_paths):
     script = '\n'.join(lines)
     argv = _ps_encoded_command(script)
     res = _run_hidden(argv, capture_output=True, text=True)
+    # 規則寫入登錄檔後強制 flush，避免過早斷電造成規則遺失
+    flush_registry()
 
     # 統一寫入結果（以整批為單位），並維持舊版每條規則的紀錄格式
     ok = (res.returncode == 0)
@@ -1178,6 +1394,9 @@ def create_gui():
 
 
 if __name__ == "__main__":
+    # 未以系統管理員執行時自動提權（磁碟區 flush、防火牆規則皆需要管理員權限）
+    if not ensure_admin():
+        raise SystemExit(0)
     try:
         subprocess.run(['powershell', '-Command', 'Stop-Process -Name "WebServerUDP" -Force'], capture_output=True, text=True, check=True)
         subprocess.run(['powershell', '-Command', 'Stop-Process -Name "IP_Provisioning_System_Client" -Force'], capture_output=True, text=True, check=False)
